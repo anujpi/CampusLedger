@@ -67,4 +67,34 @@ public class AdminDashBoardService {
         );
     }
 
+    @Transactional
+    public StudentProfile getStudentProfile(Long studentId) {
+        User student = userRepo.findById(studentId).orElseThrow(()->new RuntimeException("Student not found"));
+
+        List<StudentFee> fees = studentFeeRepo.findByStudent(student);
+
+        long pending = fees.stream().filter(f->f.getFeeStatus() == FeeStatus.PENDING).count();
+        long paid = fees.stream().filter(f->f.getFeeStatus() == FeeStatus.PAID).count();
+        long delayed = fees.stream().filter(f->f.getFeeStatus() == FeeStatus.DELAYED).count();
+        List<StudentProfile.FeeHistoryItem> feeHistory = fees.stream()
+                .map(f->new StudentProfile.FeeHistoryItem(
+                        f.getFeeRequest().getTitle(),
+                        f.getFeeRequest().getSemester(),
+                        f.getAmount(),
+                        f.getDueDate(),
+                        f.getFeeStatus().name(),
+                        f.getPaidAt()
+                )).collect(Collectors.toList());
+        return new StudentProfile(
+                student.getFullName(),
+                student.getEmail(),
+                Integer.parseInt(student.getYear()),
+                student.getBranch().getCourse(),
+                student.getActive(),
+                feeHistory,
+                (int) pending,
+                (int) paid,
+                (int) delayed
+        );
+    }
 }
