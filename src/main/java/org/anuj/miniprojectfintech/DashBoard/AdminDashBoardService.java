@@ -8,6 +8,7 @@ import org.anuj.miniprojectfintech.payment.StudentFee;
 import org.anuj.miniprojectfintech.payment.StudentFeeRepo;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -48,9 +49,12 @@ public class AdminDashBoardService {
         );
         return  students.stream().map(student->{
             List<StudentFee> fees = studentFeeRepo.findByStudent(student);
-            long pending = fees.stream().filter(f->f.getFeeStatus()
+            BigDecimal pending = fees.stream().filter(f->f.getFeeStatus()
             == FeeStatus.PENDING
-                    ).count();
+                    ).map(StudentFee::getAmount).reduce(BigDecimal.ZERO,BigDecimal::add);
+            BigDecimal totalFees = fees.stream().filter(f->f.getFeeStatus() == FeeStatus.PAID || f.getFeeStatus() == FeeStatus.DELAYED).
+                    map(StudentFee::getAmount).
+                    reduce(BigDecimal.ZERO, BigDecimal::add);
             return new StudentSummary(
                     student.getId(),
                     student.getFullName(),
@@ -59,8 +63,8 @@ public class AdminDashBoardService {
                     branch.getCourse(),
                     student.getActive(),
                     pending,
-                    fees.size()
-            );
+                    totalFees
+                    );
         }).collect(
                 Collectors.toList()
 

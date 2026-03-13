@@ -17,7 +17,7 @@ public class FeeRequestController {
     private final FeeRequestService feeRequestService;
 
     // admin -> create a fee request
-    @PostMapping("/auth/fee-request")
+    @PostMapping("/admin/fee-request")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<FeeRequestSummary> create(
             @Valid @RequestBody CreateFeeRequestDTO dto
