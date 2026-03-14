@@ -1,18 +1,24 @@
 package org.anuj.miniprojectfintech.CSV;
 
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+import java.io.PrintStream;
+import java.io.PrintWriter;
+import java.util.List;
 
 @RequestMapping("/api/admin")
 @RestController
+@RequiredArgsConstructor
 public class CsvController {
-    @Autowired
-    private CsvService csvService;
+    private final CsvService csvService;
+    private final CredentialRepo credentialRepo;
     @PostMapping("/import")
     public ResponseEntity<CsvUploadResult> importStudents(
             @RequestParam("file")MultipartFile file){
@@ -22,5 +28,19 @@ public class CsvController {
         }catch(Exception e){
             return ResponseEntity.badRequest().build();
         }
+    }
+    @GetMapping("/download-credentials")
+    public void downloadCredentials(HttpServletResponse response) throws IOException{
+        List<CredentialRecord> credentialRecords = credentialRepo.findByDownloadedFalse();
+        response.setContentType("text/csv");
+        response.setHeader("Content-Disposition","attachment; filename = student-credentials.csv");
+        PrintWriter writer = response.getWriter();
+        writer.println("email,password");
+        for(CredentialRecord record : credentialRecords){
+            writer.println(record.getEmail() + "," + record.getRawPassword());
+            record.setDownloaded(true);
+        }
+        credentialRepo.saveAll(credentialRecords);
+        writer.flush();
     }
 }

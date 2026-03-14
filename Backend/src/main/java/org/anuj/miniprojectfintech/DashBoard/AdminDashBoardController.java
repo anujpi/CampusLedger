@@ -34,5 +34,11 @@ public class AdminDashBoardController {
         return ResponseEntity.ok(admindashBoardService
                 .getStudentsByYearAndBranch(year,branchId
                 ));
+    }@GetMapping("/student/{studentId}")
+    public ResponseEntity<StudentProfile> getStudentProfile(
+            @PathVariable Long studentId
+    ){
+        return ResponseEntity.ok(admindashBoardService.getStudentProfile(studentId));
     }
+
 }

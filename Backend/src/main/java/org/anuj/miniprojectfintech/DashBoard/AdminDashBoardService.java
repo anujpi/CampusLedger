@@ -8,6 +8,7 @@ import org.anuj.miniprojectfintech.payment.StudentFee;
 import org.anuj.miniprojectfintech.payment.StudentFeeRepo;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -48,9 +49,12 @@ public class AdminDashBoardService {
         );
         return  students.stream().map(student->{
             List<StudentFee> fees = studentFeeRepo.findByStudent(student);
-            long pending = fees.stream().filter(f->f.getFeeStatus()
+            BigDecimal pending = fees.stream().filter(f->f.getFeeStatus()
             == FeeStatus.PENDING
-                    ).count();
+                    ).map(StudentFee::getAmount).reduce(BigDecimal.ZERO,BigDecimal::add);
+            BigDecimal totalFees = fees.stream().filter(f->f.getFeeStatus() == FeeStatus.PAID || f.getFeeStatus() == FeeStatus.DELAYED).
+                    map(StudentFee::getAmount).
+                    reduce(BigDecimal.ZERO, BigDecimal::add);
             return new StudentSummary(
                     student.getId(),
                     student.getFullName(),
@@ -59,12 +63,42 @@ public class AdminDashBoardService {
                     branch.getCourse(),
                     student.getActive(),
                     pending,
-                    fees.size()
-            );
+                    totalFees
+                    );
         }).collect(
                 Collectors.toList()
 
         );
     }
 
+    @Transactional
+    public StudentProfile getStudentProfile(Long studentId) {
+        User student = userRepo.findById(studentId).orElseThrow(()->new RuntimeException("Student not found"));
+
+        List<StudentFee> fees = studentFeeRepo.findByStudent(student);
+
+        long pending = fees.stream().filter(f->f.getFeeStatus() == FeeStatus.PENDING).count();
+        long paid = fees.stream().filter(f->f.getFeeStatus() == FeeStatus.PAID).count();
+        long delayed = fees.stream().filter(f->f.getFeeStatus() == FeeStatus.DELAYED).count();
+        List<StudentProfile.FeeHistoryItem> feeHistory = fees.stream()
+                .map(f->new StudentProfile.FeeHistoryItem(
+                        f.getFeeRequest().getTitle(),
+                        f.getFeeRequest().getSemester(),
+                        f.getAmount(),
+                        f.getDueDate(),
+                        f.getFeeStatus().name(),
+                        f.getPaidAt()
+                )).collect(Collectors.toList());
+        return new StudentProfile(
+                student.getFullName(),
+                student.getEmail(),
+                Integer.parseInt(student.getYear()),
+                student.getBranch().getCourse(),
+                student.getActive(),
+                feeHistory,
+                (int) pending,
+                (int) paid,
+                (int) delayed
+        );
+    }
 }
