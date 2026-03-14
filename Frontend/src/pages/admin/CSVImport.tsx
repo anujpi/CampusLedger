@@ -63,6 +63,27 @@ export default function CSVImport() {
       setUploading(false);
     }
   };
+  const handleDownload = async () => {
+  if (pendingCount === 0) return;
+  try {
+    const res = await fetch("http://localhost:8080/api/admin/csv/download-credentials", {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("token")}`,
+      },
+    });
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "student-credentials.csv";
+    a.click();
+    window.URL.revokeObjectURL(url);
+    setTimeout(() => setPendingCount(0), 1000);
+  } catch {
+    setError("Failed to download credentials");
+  }
+};
+
 
   return (
     <div className="animate-fade-in-up">
