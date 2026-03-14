@@ -6,4 +6,6 @@ import java.util.List;
 
 public interface CredentialRepo extends JpaRepository<CredentialRecord,Long>{
      List<CredentialRecord>findByDownloadedFalse();
+
+     Long countByDownloadedFalse();
 }
