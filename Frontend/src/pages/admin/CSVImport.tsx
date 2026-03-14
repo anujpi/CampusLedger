@@ -16,6 +16,7 @@ interface ImportResult {
 }
 
 export default function CSVImport() {
+  // ─── STATE ───────────────────────────────────────────────
   const fileRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -24,6 +25,7 @@ export default function CSVImport() {
   const [errorsOpen, setErrorsOpen] = useState(false);
   const [pendingCount, setPendingCount] = useState<number>(0);
 
+  // ─── FETCH PENDING COUNT ──────────────────────────────────
   const fetchPendingCount = async () => {
     try {
       const count = await api<number>("/api/admin/csv/pending-credentials-count");
@@ -33,14 +35,17 @@ export default function CSVImport() {
     }
   };
 
+  // fetch on mount
   useEffect(() => {
     fetchPendingCount();
   }, []);
 
+  // refetch after every import
   useEffect(() => {
     if (result) fetchPendingCount();
   }, [result]);
 
+  // ─── HANDLE CSV FILE UPLOAD ───────────────────────────────
   const handleFile = async (file: File) => {
     if (!file.name.endsWith(".csv")) {
       setError("Only CSV files are allowed");
@@ -63,34 +68,49 @@ export default function CSVImport() {
       setUploading(false);
     }
   };
+
+  // ─── HANDLE CREDENTIAL DOWNLOAD ──────────────────────────
+  // uses fetch directly with JWT token instead of <a> tag
+  // because <a> tag doesn't send Authorization header
   const handleDownload = async () => {
-  if (pendingCount === 0) return;
-  try {
-    const res = await fetch("http://localhost:8080/api/admin/csv/download-credentials", {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem("token")}`,
-      },
-    });
-    const blob = await res.blob();
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "student-credentials.csv";
-    a.click();
-    window.URL.revokeObjectURL(url);
-    setTimeout(() => setPendingCount(0), 1000);
-  } catch {
-    setError("Failed to download credentials");
-  }
-};
+    if (pendingCount === 0) return;
+    try {
+      const res = await fetch(
+        "http://localhost:8080/api/admin/csv/download-credentials",
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        }
+      );
+      if (!res.ok) {
+        setError("Failed to download credentials");
+        return;
+      }
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.style.display = "none";
+      link.href = url;
+      link.download = "student-credentials.csv";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      setTimeout(() => setPendingCount(0), 1000);
+    } catch {
+      setError("Failed to download credentials");
+    }
+  };
 
-
+  // ─── RENDER ───────────────────────────────────────────────
   return (
     <div className="animate-fade-in-up">
       <h1 className="text-[28px] font-semibold text-foreground tracking-tight mb-6">
         CSV Import
       </h1>
 
+      {/* ── DROP ZONE ── */}
       <div
         onDragOver={(e) => {
           e.preventDefault();
@@ -131,6 +151,7 @@ export default function CSVImport() {
         />
       </div>
 
+      {/* ── UPLOAD ERROR ── */}
       {error && (
         <div className="flex items-start gap-2 text-sm text-destructive bg-destructive/5 border border-destructive/10 rounded-lg px-3 py-2.5 mt-4">
           <span>⚠</span>
@@ -138,6 +159,7 @@ export default function CSVImport() {
         </div>
       )}
 
+      {/* ── IMPORT RESULT ── */}
       {result && (
         <div className="mt-6 space-y-4">
           <div className="flex gap-6">
@@ -157,6 +179,7 @@ export default function CSVImport() {
             )}
           </div>
 
+          {/* ── ERROR DETAILS ACCORDION ── */}
           {result.errors && result.errors.length > 0 && (
             <div className="border border-border rounded-xl overflow-hidden card-elevated">
               <button
@@ -184,6 +207,7 @@ export default function CSVImport() {
         </div>
       )}
 
+      {/* ── DOWNLOAD CREDENTIALS SECTION ── */}
       <div className="mt-8 border border-border rounded-xl p-6 card-elevated">
         <div className="flex items-center justify-between">
           <div>
@@ -194,6 +218,7 @@ export default function CSVImport() {
               Download email and password list for newly imported students
             </p>
           </div>
+          {/* ── PENDING BADGE ── */}
           {pendingCount > 0 && (
             <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold bg-status-pending-bg text-status-pending ring-1 ring-inset ring-status-pending/20">
               {pendingCount} pending
@@ -202,25 +227,20 @@ export default function CSVImport() {
         </div>
 
         <div className="mt-4 flex items-center gap-3">
-          <a
-            href="http://localhost:8080/api/admin/csv/download-credentials"
+          {/* ── DOWNLOAD BUTTON (uses handleDownload, NOT an <a> tag) ── */}
+          <button
+            onClick={handleDownload}
+            disabled={pendingCount === 0}
             className={`inline-flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-lg border transition-colors ${
               pendingCount > 0
                 ? "border-primary/30 text-primary hover:bg-primary/5 cursor-pointer"
-                : "border-border text-muted-foreground cursor-not-allowed pointer-events-none opacity-50"
+                : "border-border text-muted-foreground cursor-not-allowed opacity-50"
             }`}
-            download
-            onClick={(e) => {
-              if (pendingCount === 0) {
-                e.preventDefault();
-                return;
-              }
-              setTimeout(() => setPendingCount(0), 1000);
-            }}
           >
             <Download className="h-4 w-4" />
             Download CSV
-          </a>
+          </button>
+          {/* ── NO PENDING MESSAGE ── */}
           {pendingCount === 0 && (
             <p className="text-xs text-muted-foreground">
               No pending credentials to download
