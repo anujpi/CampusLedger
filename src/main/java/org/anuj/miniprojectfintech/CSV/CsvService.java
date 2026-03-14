@@ -21,11 +21,13 @@ public class CsvService {
     private final UserRepo userRepo;
     private final BranchRepo branchRepo;
     private final PasswordEncoder passwordEncoder;
+    private final CredentialRepo credentialRepo;
 
     public CsvUploadResult importStudents(MultipartFile file) throws IOException {
         List<String> errors = new ArrayList<>();
         List<User> toSave  = new ArrayList<>();
         List<java.util.Map<String, String>> generatedPasswords = new ArrayList<>();
+        List<CredentialRecord> credential = new ArrayList<>();
 
         try(CSVReader reader = new CSVReader(
                 new InputStreamReader(file.getInputStream())
@@ -55,6 +57,12 @@ public class CsvService {
                             }
                     );
                     String rawPassword = generatePassword();
+                    CredentialRecord cred = new CredentialRecord();
+                    cred.setEmail(email);
+                    cred.setRawPassword(rawPassword);
+                    cred.setCreatedAt(LocalDateTime.now());
+                    cred.setDownloaded(false);
+                    credential.add(cred);
                     User student = new User();
                     student.setFullName(fullName);
                     student.setEmail(email);
@@ -72,6 +80,7 @@ public class CsvService {
                 }
             }
             userRepo.saveAll(toSave);
+            credentialRepo.saveAll(credential);
         }catch(Exception e){
             throw new RuntimeException("Failed to parse CSV: "+e.getMessage());
         }
