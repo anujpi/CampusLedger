@@ -16,8 +16,29 @@ public class ChatBoxService {
     private final ChatBoxRepo chatBoxRepo;
     private final MessageRepo messageRepo;
     private static final int MAX_ACTIVE_CHATBOXES = 5;
+
+    private ChatBoxDTO toDTO(ChatBox chatBox){
+        return new ChatBoxDTO(
+                chatBox.getId(),
+                chatBox.getSubject(),
+                chatBox.getStatus().name(),
+                chatBox.getStudent().getFullName(),
+                chatBox.getAdmin() != null? chatBox.getAdmin().getFullName() : null,
+                chatBox.getLastMessageAt(),
+                chatBox.getCreatedAt()
+        );
+    }
+    private MessageDTO toMessageDTO(Message message){
+        return new MessageDTO(
+                message.getId(),
+                message.getSender().getFullName(),
+                message.getSender().getRole().name(),
+                message.getContext(),
+                message.getSentAt()
+        );
+    }
     @Transactional
-    public ChatBox createChatBox(User user, @Valid CreateChatBoxRequest request) {
+    public ChatBoxDTO createChatBox(User user, @Valid CreateChatBoxRequest request) {
         int activeCount = chatBoxRepo.countByStudentAndStatusNot(user,TicketStatus.CLOSED);
         if(activeCount>=MAX_ACTIVE_CHATBOXES){
             throw new RuntimeException("You already have"+MAX_ACTIVE_CHATBOXES+"active tickets ."+
@@ -38,10 +59,10 @@ public class ChatBoxService {
 
         chatBox.setStudentLastReadMessageId(opening.getId());
         chatBoxRepo.save(chatBox);
-        return chatBox;
+        return toDTO(chatBox);
     }
     @Transactional // check if the chatbox exist , check that the sender is either the correct student and assigned admin, check if the ticket is closed
-    public Message sendMessage(User user, Long chatBoxId, @Valid SendMessageRequest request) {
+    public MessageDTO sendMessage(User user, Long chatBoxId, @Valid SendMessageRequest request) {
         ChatBox chatBox = chatBoxRepo.findById(chatBoxId).orElseThrow(()->new RuntimeException("Chat Box doesnt exist "));
 
         boolean isStudent = chatBox.getStudent().getId().equals(user.getId());
@@ -70,22 +91,22 @@ public class ChatBoxService {
         else{
             chatBox.setAdminLastReadMessageId(message.getId());
         }
-        return message;
+        return toMessageDTO(message);
     }
 
-    public List<ChatBox> unsignedChatBoxes() {
-        return chatBoxRepo.findByStatusAndAdminIsNull(TicketStatus.OPEN);
+    public List<ChatBoxDTO> unsignedChatBoxes() {
+        return chatBoxRepo.findByStatusAndAdminIsNull(TicketStatus.OPEN).stream().map(this::toDTO).toList();
     }
 
-    public List<ChatBox> getAssignedChatBoxes(User admin) {
-        return chatBoxRepo.findByAdmin(admin);
+    public List<ChatBoxDTO> getAssignedChatBoxes(User admin) {
+        return chatBoxRepo.findByAdmin(admin).stream().map(this::toDTO).toList();
     }
 
-    public List<ChatBox> getStudentChatBoxes(User user) {
-        return chatBoxRepo.findByStudent(user);
+    public List<ChatBoxDTO> getStudentChatBoxes(User user) {
+        return chatBoxRepo.findByStudent(user).stream().map(this::toDTO).toList();
     }
     @Transactional
-    public ChatBox takeTicket(User user, Long chatBoxId) {
+    public ChatBoxDTO takeTicket(User user, Long chatBoxId) {
         ChatBox chatBox = chatBoxRepo.findById(chatBoxId).orElseThrow(
                 ()->new RuntimeException("Chat box not found"));
         if(chatBox.getAdmin()!=null){
@@ -94,30 +115,32 @@ public class ChatBoxService {
         chatBox.setAdmin(user);
         chatBox.setStatus(TicketStatus.IN_PROGRESS);
         chatBoxRepo.save(chatBox);
-        return chatBox;
+        return toDTO(chatBox);
     }
 
     @Transactional
-    public List<Message> getTicket(Long chatBoxId) {
+    public List<MessageDTO> getTicket(Long chatBoxId) {
         ChatBox chatBox = chatBoxRepo.findById(chatBoxId).orElseThrow(()->new RuntimeException("Chat box doesnt exist"));
-        return messageRepo.findByChatBoxOrderBySentAtAsc(chatBox);
+        return messageRepo.findByChatBoxOrderBySentAtAsc(chatBox).stream().map(this::toMessageDTO).toList();
     }
     @Transactional
-    public ChatBox closeTicket(User user, Long chatBoxId) {
+    public ChatBoxDTO closeTicket(User user, Long chatBoxId) {
         ChatBox chatBox = chatBoxRepo.findById(chatBoxId).orElseThrow(()->new RuntimeException("ChatBox not found"));
         if(!chatBox.getStudent().getId().equals(user.getId())){
             throw new RuntimeException("This ticket doesnt belong to you");
         }
         chatBox.setStatus(TicketStatus.CLOSED);
-        return chatBoxRepo.save(chatBox);
+        chatBoxRepo.save(chatBox);
+        return toDTO(chatBox);
     }
     @Transactional
-    public ChatBox resolve(User user, Long chatBoxId) {
+    public ChatBoxDTO resolve(User user, Long chatBoxId) {
         ChatBox chatBox = chatBoxRepo.findById(chatBoxId).orElseThrow(()->new RuntimeException("ChatBox not found"));
         if(!chatBox.getAdmin().getId().equals(user.getId())){
             throw new RuntimeException("This ticket doesnt belong to you");
         }
         chatBox.setStatus(TicketStatus.RESOLVED);
-        return chatBoxRepo.save(chatBox);
+        chatBoxRepo.save(chatBox);
+        return toDTO(chatBox);
     }
 }

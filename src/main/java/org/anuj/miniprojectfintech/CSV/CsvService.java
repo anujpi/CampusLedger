@@ -26,7 +26,6 @@ public class CsvService {
     public CsvUploadResult importStudents(MultipartFile file) throws IOException {
         List<String> errors = new ArrayList<>();
         List<User> toSave  = new ArrayList<>();
-        List<java.util.Map<String, String>> generatedPasswords = new ArrayList<>();
         List<CredentialRecord> credential = new ArrayList<>();
 
         try(CSVReader reader = new CSVReader(
@@ -74,7 +73,6 @@ public class CsvService {
                     student.setMustChangePassword(true);
                     student.setPassword(passwordEncoder.encode(rawPassword));
                     toSave.add(student);
-                    generatedPasswords.add(java.util.Map.of("email", email, "password", rawPassword));
                 }catch (Exception e){
                     errors.add("Row "+row+": " +e.getMessage());
                 }
@@ -84,7 +82,7 @@ public class CsvService {
         }catch(Exception e){
             throw new RuntimeException("Failed to parse CSV: "+e.getMessage());
         }
-        return new CsvUploadResult(toSave.size(),errors.size(),errors,generatedPasswords);
+        return new CsvUploadResult(toSave.size(),errors.size(),errors);
      }
 
     private String generatePassword() {

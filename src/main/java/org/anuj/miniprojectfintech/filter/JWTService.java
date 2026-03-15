@@ -20,8 +20,8 @@ public class JWTService {
     }
     public String generateToken(String username,boolean mustChangePassword){
         return Jwts.builder()
-                .subject(username)
                 .claims(Map.of("mustChangePassword",mustChangePassword))
+                .subject(username)
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis()+1000*60*60*24))
                 .signWith(getSigningKey())

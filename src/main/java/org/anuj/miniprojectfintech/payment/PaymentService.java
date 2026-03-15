@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
 @Service
@@ -63,11 +64,29 @@ public class PaymentService {
         );
     }
 
-    public List<Payment> getPaymentHistory(User user) {
-        return paymentRepo.findByStudentFee_Student(user);
+    public List<PaymentHistoryDTO> getPaymentHistory(User user) {
+        return paymentRepo.findByStudentFee_Student(user).stream()
+                .map(p -> new PaymentHistoryDTO(
+                        p.getTransactionId(),
+                        p.getStudentFee().getFeeRequest().getTitle(),
+                        p.getStudentFee().getFeeRequest().getSemester(),
+                        p.getAmount(),
+                        p.getPaymentMode().name(),
+                        p.getPaidAt(),
+                        p.getIsDelayed()
+                )).collect(Collectors.toList());
     }
     @Transactional
-    public List<Payment> getSemesterWisePaymentHistory(User user,Integer semester) {
-        return paymentRepo.findByStudentFee_StudentAndStudentFee_FeeRequest_Semester(user, semester);
-    }
+    public List<PaymentHistoryDTO> getSemesterWisePaymentHistory(User user,Integer semester) {
+        return paymentRepo.findByStudentFee_StudentAndStudentFee_FeeRequest_Semester(user, semester)
+                .stream()
+                .map(p -> new PaymentHistoryDTO(
+                        p.getTransactionId(),
+                        p.getStudentFee().getFeeRequest().getTitle(),
+                        p.getStudentFee().getFeeRequest().getSemester(),
+                        p.getAmount(),
+                        p.getPaymentMode().name(),
+                        p.getPaidAt(),
+                        p.getIsDelayed()
+                )).collect(Collectors.toList());    }
 }
