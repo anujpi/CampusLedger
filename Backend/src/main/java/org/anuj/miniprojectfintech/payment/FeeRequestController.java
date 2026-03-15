@@ -37,7 +37,7 @@ public class FeeRequestController {
             ){
         return ResponseEntity.ok(feeRequestService.getStudentFees(currentUser.getUser()));
     }
-    @GetMapping("/students/fees/semester/{semester}")
+    @GetMapping("/student/fees/semester/{semester}")
     @PreAuthorize("hasRole('STUDENT')")
     public ResponseEntity<List<StudentFee>> myFeesBySemester(
             @AuthenticationPrincipal MyCustomUserDetails currentUser,

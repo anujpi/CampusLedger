@@ -7,6 +7,7 @@ import org.anuj.miniprojectfintech.Login.LoginRequest;
 import org.anuj.miniprojectfintech.Login.LoginResponse;
 import org.anuj.miniprojectfintech.config.MyCustomUserDetails;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 

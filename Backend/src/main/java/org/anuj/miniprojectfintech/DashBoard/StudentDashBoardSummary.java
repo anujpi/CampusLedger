@@ -10,9 +10,9 @@ public class StudentDashBoardSummary {
     private String fullName;
     private String branch;
     private String year;
-    private long totalFees;
-    private long pendingFees;
-    private long paidFees;
+    private long totalFeesCount;
+    private long pendingCount;
+    private long paidCount;
     private BigDecimal totalDue;
     private BigDecimal totalPaid;
 

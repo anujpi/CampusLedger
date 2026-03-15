@@ -12,5 +12,4 @@ public class CsvUploadResult {
     private int imported;
     private int failed;
     private List<String> errors;
-    private List<Map<String,String>> generatedPassword;
 }

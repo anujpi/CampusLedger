@@ -8,9 +8,9 @@ interface Overview {
   fullName: string;
   branch: string;
   year: number;
-  totalFees: number;
-  pendingFees: number;
-  paidFees: number;
+  totalFeesCount: number;
+  pendingCount: number;
+  paidCount: number;
   totalDue: number;
   totalPaid: number;
 }
@@ -51,11 +51,11 @@ export default function StudentDashboard() {
             </p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard label="Total Fees" value={formatINR(data.totalFees)} borderColor="blue" />
-            <StatCard label="Pending" value={formatINR(data.pendingFees)} borderColor="amber" />
-            <StatCard label="Paid" value={formatINR(data.paidFees)} borderColor="green" />
-            <StatCard label="Total Due" value={formatINR(data.totalDue)} borderColor="red" />
-          </div>
+  <StatCard label="Total Fees" value={`${data.totalFeesCount} fees`} borderColor="blue" />
+  <StatCard label="Pending" value={`${data.pendingCount} unpaid`} borderColor="amber" />
+  <StatCard label="Total Paid" value={formatINR(data.totalPaid)} borderColor="green" />
+  <StatCard label="Total Due" value={formatINR(data.totalDue)} borderColor="red" />
+</div>
         </>
       ) : (
         <>

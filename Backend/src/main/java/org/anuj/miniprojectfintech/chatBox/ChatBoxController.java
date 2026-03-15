@@ -18,14 +18,14 @@ public class ChatBoxController {
 
     @PreAuthorize("hasRole('STUDENT')")
     @PostMapping("/student/chatbox")
-    public ResponseEntity<ChatBox> create(
+    public ResponseEntity<ChatBoxDTO> create(
             @AuthenticationPrincipal MyCustomUserDetails currentUser,
             @Valid @RequestBody CreateChatBoxRequest request
             ){
         return ResponseEntity.ok(chatBoxService.createChatBox(currentUser.getUser(),request));
     }
     @PostMapping("/chatbox/{chatBoxId}/message")
-    public ResponseEntity<Message> sendMessage(
+    public ResponseEntity<MessageDTO> sendMessage(
             @AuthenticationPrincipal MyCustomUserDetails currentUser,
             @PathVariable Long chatBoxId,
             @Valid @RequestBody SendMessageRequest request
@@ -37,48 +37,48 @@ public class ChatBoxController {
     //admin viewing all unassigned chat boxes
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/admin/chatbox/open")
-    public ResponseEntity<List<ChatBox>> unassignedChatBox(){
+    public ResponseEntity<List<ChatBoxDTO>> unassignedChatBox(){
         return ResponseEntity.ok(chatBoxService.unsignedChatBoxes());
     }
     // admin viewing all there assigned chat boxes
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/admin/chatbox/mine")
-    public ResponseEntity<List<ChatBox>> assignedChatBox(@AuthenticationPrincipal MyCustomUserDetails currentUser){
+    public ResponseEntity<List<ChatBoxDTO>> assignedChatBox(@AuthenticationPrincipal MyCustomUserDetails currentUser){
         return ResponseEntity.ok(chatBoxService.getAssignedChatBoxes(currentUser.getUser()));
     }
     // student viewing all of there chatbox
     @PreAuthorize("hasRole('STUDENT')")
     @GetMapping("/student/chatbox")
-    public ResponseEntity<List<ChatBox>> studentChatBoxes(@AuthenticationPrincipal MyCustomUserDetails currentUser){
+    public ResponseEntity<List<ChatBoxDTO>> studentChatBoxes(@AuthenticationPrincipal MyCustomUserDetails currentUser){
         return ResponseEntity.ok(chatBoxService.getStudentChatBoxes(currentUser.getUser()));
     }
     // admin to pick up a ticket
     @PreAuthorize("hasRole('ADMIN')")
-    @PostMapping("/admin/chatBox/{chatBoxId}/take")
-    public ResponseEntity<ChatBox> take(
+    @PatchMapping("/admin/chatbox/{chatBoxId}/take")
+    public ResponseEntity<ChatBoxDTO> take(
             @AuthenticationPrincipal MyCustomUserDetails currentUser,
             @PathVariable Long chatBoxId
     ){
         return ResponseEntity.ok(chatBoxService.takeTicket(currentUser.getUser(),chatBoxId));
     }
-    @GetMapping("/chatbox/{chatBoxId}/ticket3")
-    public ResponseEntity<List<Message>> ticket(
+    @GetMapping("/chatbox/{chatBoxId}/thread")
+    public ResponseEntity<List<MessageDTO>> ticket(
             @PathVariable Long chatBoxId
     ) {
         return ResponseEntity.ok(chatBoxService.getTicket(chatBoxId));
     }
     // close a chatBox(ticket)
     @PreAuthorize("hasRole('STUDENT')")
-    @PatchMapping("/students/chatbox/{chatBoxId}/close")
-    public ResponseEntity<ChatBox> closeTicket(
+    @PostMapping("/student/chatbox/{chatBoxId}/close")
+    public ResponseEntity<ChatBoxDTO> closeTicket(
             @AuthenticationPrincipal MyCustomUserDetails currentUser,
             @PathVariable Long chatBoxId
     ){
         return ResponseEntity.ok(chatBoxService.closeTicket(currentUser.getUser(),chatBoxId));
     }
     @PreAuthorize("hasRole('ADMIN')")
-    @PatchMapping("/admin/chatBox/{chatBoxId}/resolve")
-    public ResponseEntity<ChatBox> resolve(
+    @PostMapping("/admin/chatbox/{chatBoxId}/resolve")
+    public ResponseEntity<ChatBoxDTO> resolve(
             @AuthenticationPrincipal MyCustomUserDetails currentUser,
             @PathVariable Long chatBoxId
     ){

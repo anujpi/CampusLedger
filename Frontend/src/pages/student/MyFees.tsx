@@ -22,7 +22,7 @@ interface ReceiptData {
   semester: number;
   amount: number;
   paymentMode: string;
-  date: string;
+  paidAt: string;
   wasDelayed: boolean;
 }
 

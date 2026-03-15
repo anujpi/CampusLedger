@@ -66,10 +66,10 @@ export function ChatView({ ticketId, ticketStatus, onBack, onStatusChange, isAdm
   const handleClose = async () => {
     try {
       if (isAdmin) {
-        await api(`/api/admin/chatbox/${ticketId}/resolve`, { method: "PATCH" });
+        await api(`/api/admin/chatbox/${ticketId}/resolve`, { method: "POST" });
         setStatus("RESOLVED");
       } else {
-        await api(`/api/student/chatbox/${ticketId}/close`, { method: "PATCH" });
+        await api(`/api/student/chatbox/${ticketId}/close`, { method: "POST" });
         setStatus("CLOSED");
       }
       onStatusChange?.();
