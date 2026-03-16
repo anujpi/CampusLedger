@@ -5,6 +5,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.anuj.miniprojectfintech.User.User;
 import org.anuj.miniprojectfintech.config.MyCustomUserDetails;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -15,6 +16,7 @@ import java.util.List;
 public class ChatBoxService {
     private final ChatBoxRepo chatBoxRepo;
     private final MessageRepo messageRepo;
+    private final SimpMessagingTemplate simpMessagingTemplate;
     private static final int MAX_ACTIVE_CHATBOXES = 5;
 
     private ChatBoxDTO toDTO(ChatBox chatBox){
@@ -62,9 +64,10 @@ public class ChatBoxService {
         return toDTO(chatBox);
     }
     @Transactional // check if the chatbox exist , check that the sender is either the correct student and assigned admin, check if the ticket is closed
-    public MessageDTO sendMessage(User user, Long chatBoxId, @Valid SendMessageRequest request) {
+    public MessageDTO sendMessage(User user,
+                                  Long chatBoxId,
+                                  @Valid SendMessageRequest request) {
         ChatBox chatBox = chatBoxRepo.findById(chatBoxId).orElseThrow(()->new RuntimeException("Chat Box doesnt exist "));
-
         boolean isStudent = chatBox.getStudent().getId().equals(user.getId());
         if(!isStudent && chatBox.getAdmin() == null){
             chatBox.setAdmin(user);
@@ -74,7 +77,6 @@ public class ChatBoxService {
         if(!isAdmin && !isStudent){
             throw new RuntimeException("You are not part of this conversation");
         }
-
         if(chatBox.getStatus()==TicketStatus.CLOSED){
             throw new RuntimeException("The ticket is closed");
         }
@@ -91,7 +93,12 @@ public class ChatBoxService {
         else{
             chatBox.setAdminLastReadMessageId(message.getId());
         }
-        return toMessageDTO(message);
+        MessageDTO dto = toMessageDTO(message);
+        String recipientEmail = isStudent ? (chatBox.getAdmin()!=null?chatBox.getAdmin().getEmail():null) : chatBox.getStudent().getEmail();
+        if(recipientEmail != null){
+            simpMessagingTemplate.convertAndSendToUser(recipientEmail,"queue/messages",dto);
+        }
+        return dto;
     }
 
     public List<ChatBoxDTO> unsignedChatBoxes() {

@@ -37,7 +37,8 @@ public class SecurityConfig {
         .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth->auth.requestMatchers("/api/auth/login").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN").
-                        requestMatchers("/api/student/**").hasRole("STUDENT").anyRequest().authenticated())
+                        requestMatchers("/api/student/**").hasRole("STUDENT")
+                        .requestMatchers("/ws/**").permitAll().anyRequest().authenticated())
                 .sessionManagement(session->session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
         http.addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
