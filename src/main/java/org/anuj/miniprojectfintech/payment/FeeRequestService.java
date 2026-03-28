@@ -3,10 +3,16 @@ package org.anuj.miniprojectfintech.payment;
 import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.anuj.miniprojectfintech.Notification.FeeNotificationDTO;
 import org.anuj.miniprojectfintech.User.Branch;
 import org.anuj.miniprojectfintech.User.BranchRepo;
 import org.anuj.miniprojectfintech.User.User;
 import org.anuj.miniprojectfintech.User.UserRepo;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -20,6 +26,7 @@ public class FeeRequestService {
     private final FeeRequestRepo feeRequestRepo;
     private final UserRepo userRepo;
     private final StudentFeeRepo studentFeeRepo;
+    private final SimpMessagingTemplate simpMessagingTemplate;
 
     public FeeRequestSummary createAndFanOut(@Valid CreateFeeRequestDTO dto) {
         Branch branch = branchRepo.findById(dto.getBranchId()).orElseThrow(()->new RuntimeException("branch not found"));
@@ -53,6 +60,12 @@ public class FeeRequestService {
         }
         studentFeeRepo.saveAll(studentFees);
 
+        for(StudentFee sf : studentFees){
+            simpMessagingTemplate.convertAndSendToUser(sf.getStudent().getEmail(),
+                    "/queue/notifications",
+                    toNotDto(sf));
+        }
+
         return new FeeRequestSummary(feeRequest.getId(),students.size(),studentFees.size());
     }
 
@@ -66,5 +79,20 @@ public class FeeRequestService {
     @Transactional
     public List<StudentFee> getMySemesterFees(User user, Integer semester) {
         return studentFeeRepo.findByStudentAndFeeRequest_Semester(user,semester);
+    }
+
+    public Page<FeeNotificationDTO> getFeeNotifications(User user, int page, int size) {
+        Pageable pageable = PageRequest.of(page,size,Sort.by("feeRequest.createdAt").descending());
+        return  studentFeeRepo.findByStudent(user,pageable).map(this::toNotDto);
+    }
+    public FeeNotificationDTO toNotDto(StudentFee studentFee){
+        FeeRequest fr = studentFee.getFeeRequest();
+        return new FeeNotificationDTO(
+                fr.getId(),
+                fr.getDescription(),
+                fr.getSemester(),
+                fr.getCreatedAt(),
+                fr.getDueDate()
+        );
     }
 }
