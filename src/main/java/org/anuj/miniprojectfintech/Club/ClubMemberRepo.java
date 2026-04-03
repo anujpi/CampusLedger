@@ -7,6 +7,7 @@ import java.util.List;
 public interface ClubMemberRepo extends JpaRepository<ClubMember, Long> {
     List<ClubMember> findByClubId(Long clubId);
     List<ClubMember> findByUserId(Long userId);
+    List<ClubMember> findByClubIdAndStatus(Long clubId,MemberShipStatus status);
     int countByClubId(Long clubId);
     boolean existsByClubIdAndRole(Long clubId, ClubRole clubRole);
 

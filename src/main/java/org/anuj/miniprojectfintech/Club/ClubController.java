@@ -64,8 +64,14 @@ public class ClubController {
     public ResponseEntity<Club> findClubByName(@PathVariable String clubName){
         return ResponseEntity.ok(clubService.viewClubByName(clubName));
     }
-    /* to show all the current members of the club
-    , view all clubs, view all applicants
-     , some changes in the making leaders thing
-     , receiving and accepting or rejecting applications*/
+    @PreAuthorize("hasRole('STUDENT')")
+    @GetMapping("/get/applicants/{clubId}")
+    public ResponseEntity<List<ClubMember>> viewAllApplicants(@PathVariable Long clubId,@AuthenticationPrincipal MyCustomUserDetails currentUser){
+        return ResponseEntity.ok(clubService.viewAllApplicants(clubId,currentUser.getUser()));
+    }
+    @GetMapping("/members/{clubId}")
+    public ResponseEntity<List<ClubMember>> viewAllMembers(@PathVariable Long clubId){
+        return ResponseEntity.ok(clubService.viewAllMembers(clubId));
+    }
+
 }

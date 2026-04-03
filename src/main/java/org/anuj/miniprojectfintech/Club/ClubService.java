@@ -127,4 +127,14 @@ public class ClubService {
         return clubRepo.findClubByNameAndIsActive(clubName,true);
     }
 
+    public List<ClubMember> viewAllApplicants(Long clubId, User user) {
+        if(!validateLeaderAndCoLeader(user,clubId)){
+            throw new RuntimeException("Not allowed");
+        }
+        return clubMemberRepo.findByClubIdAndStatus(clubId,MemberShipStatus.PENDING);
+    }
+
+    public List<ClubMember> viewAllMembers(Long clubId) {
+        return clubMemberRepo.findByClubIdAndStatus(clubId,MemberShipStatus.ACTIVE);
+    }
 }
