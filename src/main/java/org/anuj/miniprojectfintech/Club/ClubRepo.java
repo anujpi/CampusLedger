@@ -6,6 +6,6 @@ import java.util.List;
 
 public interface ClubRepo extends JpaRepository<Club, Long> {
     List<Club> findClubByIsActive(Boolean isActive);
-
+    Club findByName(String name);
     Club findClubByNameAndIsActive(String clubName, boolean b);
 }

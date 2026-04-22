@@ -55,7 +55,7 @@ public class ClubService {
         Club club = clubRepo.findById(clubId).orElseThrow(()->new RuntimeException("Club not found"));
         User user = userRepo.findById(userId).orElseThrow(()->new RuntimeException("User not found"));
         ClubMember clubMember = new ClubMember();
-        if(!validateLeaderAndCoLeader(student,clubId)){
+        if(validateLeaderAndCoLeader(student,clubId)){
             throw new RuntimeException("Not Allowed");
         }
         if(!clubMemberRepo.existsByClubIdAndUserId(clubId,userId)){
@@ -77,7 +77,8 @@ public class ClubService {
         if(clubMemberRepo.existsByClubIdAndUserId(club.getId(), user.getId())){
             throw new RuntimeException("Already part of this club");
         }
-        if(clubMemberRepo.existsByStatus(MemberShipStatus.ACTIVE)){
+        if(clubMemberRepo.existsByUserIdAndStatus(user.getId()
+                ,MemberShipStatus.ACTIVE)){
             throw new RuntimeException("Not Allowed");
         }
         ClubMember clubMember = new ClubMember();
@@ -88,9 +89,12 @@ public class ClubService {
         return new ResponseDTO(clubMember.getId(),clubMember.getClub().getId(),clubMember.getUser().getId(),clubMember.getStatus());
     }
     @Transactional
-    public ResponseDTO acceptRequest(User student, Long clubId,Long senderId) {
+    public ResponseDTO acceptRequest(User student, Long clubId,Long userId) {
         Club club = clubRepo.findById(clubId).orElseThrow(()->new RuntimeException("Club not found"));
-        ClubMember clubMember = clubMemberRepo.findById(senderId).orElseThrow(()->new RuntimeException("Club member not found"));
+        ClubMember clubMember = clubMemberRepo.findById(userId).orElseThrow(()->new RuntimeException("Club member not found"));
+        if(!clubMember.getClub().getId().equals(clubId)){
+            throw new RuntimeException("Not Allowed");
+        }
         if(validateLeaderAndCoLeader(student,clubId)){
             throw new RuntimeException("Not Allowed");
         }
@@ -103,9 +107,12 @@ public class ClubService {
         return new ResponseDTO(clubMember.getId(),clubMember.getClub().getId(),clubMember.getUser().getId(),clubMember.getStatus());
     }
     @Transactional
-    public String rejectRequest(User student,Long clubId,Long senderId){
+    public String rejectRequest(User student,Long clubId,Long userId){
         Club club = clubRepo.findById(clubId).orElseThrow(()->new RuntimeException("Club not found"));
-        ClubMember clubMember = clubMemberRepo.findById(senderId).orElseThrow(()->new RuntimeException("Club member not found"));
+        ClubMember clubMember = clubMemberRepo.findById(userId).orElseThrow(()->new RuntimeException("Club member not found"));
+        if(!clubMember.getClub().getId().equals(clubId)){
+            throw new RuntimeException("Not Allowed");
+        }
         if(validateLeaderAndCoLeader(student,clubId)){
             throw new RuntimeException("Not Allowed");
         }
@@ -128,7 +135,7 @@ public class ClubService {
     }
 
     public List<ClubMember> viewAllApplicants(Long clubId, User user) {
-        if(!validateLeaderAndCoLeader(user,clubId)){
+        if(validateLeaderAndCoLeader(user,clubId)){
             throw new RuntimeException("Not allowed");
         }
         return clubMemberRepo.findByClubIdAndStatus(clubId,MemberShipStatus.PENDING);

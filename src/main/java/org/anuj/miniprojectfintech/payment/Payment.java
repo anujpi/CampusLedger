@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.anuj.miniprojectfintech.Event.Event;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -21,6 +22,9 @@ public class Payment {
     @ManyToOne
     @JoinColumn(name ="student_fee_id")
     private StudentFee studentFee;
+    @ManyToOne
+    @JoinColumn(name = "event_id",nullable = true)
+    private Event event;
 
     private BigDecimal amount;
     @Enumerated(EnumType.STRING)

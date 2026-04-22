@@ -2,6 +2,7 @@ package org.anuj.miniprojectfintech.payment;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.anuj.miniprojectfintech.Event.MakeEventPaymentRequest;
 import org.anuj.miniprojectfintech.config.MyCustomUserDetails;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -39,7 +40,15 @@ public class PaymentController {
     public ResponseEntity<List<PaymentHistoryDTO>> historySemesterWise(
             @AuthenticationPrincipal MyCustomUserDetails currentUser,
             @PathVariable Integer semester
+    ) {
+        return ResponseEntity.ok(paymentService.getSemesterWisePaymentHistory(currentUser.getUser(), semester));
+    }
+    @PostMapping("pay/event")
+    @PreAuthorize("hasRole('STUDENT')")
+    public ResponseEntity<PaymentReceipt> makeEventPayment(
+            @AuthenticationPrincipal MyCustomUserDetails myCustomUserDetails,
+            @Valid @RequestBody MakeEventPaymentRequest request
     ){
-        return ResponseEntity.ok(paymentService.getSemesterWisePaymentHistory(currentUser.getUser(),semester));
+        return ResponseEntity.ok(paymentService.makeEventPayment(myCustomUserDetails.getUser(),request));
     }
 }
