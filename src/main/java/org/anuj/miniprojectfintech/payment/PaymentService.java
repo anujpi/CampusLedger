@@ -43,6 +43,7 @@ public class PaymentService {
 
         Payment payment = new Payment();
         payment.setStudentFee(studentFee);
+        payment.setUser(user);
         payment.setAmount(studentFee.getAmount());
         payment.setPaymentMode(request.getPaymentMode());
         payment.setTransactionId(transactionId);
@@ -71,11 +72,11 @@ public class PaymentService {
     }
 
     public List<PaymentHistoryDTO> getPaymentHistory(User user) {
-        return paymentRepo.findByStudentFee_Student(user).stream()
+        return paymentRepo.findByUser(user).stream()
                 .map(p -> new PaymentHistoryDTO(
                         p.getTransactionId(),
-                        p.getStudentFee().getFeeRequest().getTitle(),
-                        p.getStudentFee().getFeeRequest().getSemester(),
+                        p.getStudentFee() != null ? p.getStudentFee().getFeeRequest().getTitle() : (p.getEvent() != null ? p.getEvent().getName() : "Unknown"),
+                        p.getStudentFee() != null ? p.getStudentFee().getFeeRequest().getSemester() : null,
                         p.getAmount(),
                         p.getPaymentMode().name(),
                         p.getPaidAt(),
@@ -84,12 +85,12 @@ public class PaymentService {
     }
     @Transactional
     public List<PaymentHistoryDTO> getSemesterWisePaymentHistory(User user,Integer semester) {
-        return paymentRepo.findByStudentFee_StudentAndStudentFee_FeeRequest_Semester(user, semester)
-                .stream()
+        return paymentRepo.findByUser(user).stream()
+                .filter(p -> p.getStudentFee() == null || p.getStudentFee().getFeeRequest().getSemester().equals(semester))
                 .map(p -> new PaymentHistoryDTO(
                         p.getTransactionId(),
-                        p.getStudentFee().getFeeRequest().getTitle(),
-                        p.getStudentFee().getFeeRequest().getSemester(),
+                        p.getStudentFee() != null ? p.getStudentFee().getFeeRequest().getTitle() : (p.getEvent() != null ? p.getEvent().getName() : "Unknown"),
+                        p.getStudentFee() != null ? p.getStudentFee().getFeeRequest().getSemester() : semester,
                         p.getAmount(),
                         p.getPaymentMode().name(),
                         p.getPaidAt(),
@@ -115,6 +116,7 @@ public class PaymentService {
         String transactionId = "TXN-"+UUID.randomUUID().toString().substring(0,8).toUpperCase();
         Payment payment = new Payment();
         payment.setEvent(event);
+        payment.setUser(user);
         payment.setAmount(event.getAmount());
         payment.setPaymentMode(request.paymentMode());
         payment.setPaymentGateway(PaymentGateway.MANUAL);

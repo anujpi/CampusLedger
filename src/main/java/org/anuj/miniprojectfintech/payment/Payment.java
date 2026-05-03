@@ -25,6 +25,9 @@ public class Payment {
     @ManyToOne
     @JoinColumn(name = "event_id",nullable = true)
     private Event event;
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "user_id",nullable = false)
+    private org.anuj.miniprojectfintech.User.User user;
 
     private BigDecimal amount;
     @Enumerated(EnumType.STRING)

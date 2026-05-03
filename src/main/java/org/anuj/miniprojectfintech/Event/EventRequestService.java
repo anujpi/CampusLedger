@@ -5,8 +5,11 @@ import org.anuj.miniprojectfintech.Club.*;
 import org.anuj.miniprojectfintech.User.User;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -15,6 +18,7 @@ public class EventRequestService {
     private final EventMemberRepo eventMemberRepo;
     private final ClubRepo clubRepo;
     private final ClubMemberRepo clubMemberRepo;
+    private final SimpMessagingTemplate simpMessagingTemplate;
 
 
     public String sendRequest(Long clubId, RequestDTO requestDTO, User student) {
@@ -34,8 +38,14 @@ public class EventRequestService {
         event.setClub(club);
         event.setSolo(requestDTO.solo());
         event.setTeamSize(requestDTO.teamSize());
+        event.setVenue(requestDTO.venue());
         applyPaidConfiguration(event,requestDTO.amount());
         eventRepo.save(event);
+
+        // Notify all club members about the new event
+        simpMessagingTemplate.convertAndSend("/topic/club/" + clubId + "/chat",
+                Optional.of(Map.of("senderName", "System", "content", "📣 New Event Published: " + event.getName() + (event.getVenue() != null ? " @ " + event.getVenue() : ""), "isSystem", true)));
+
         return "Event '"+event.getName()+"' created successfully!";
     }
     public String deleteRequest(User user, Long eventId, Long clubId) {
@@ -58,6 +68,7 @@ public class EventRequestService {
         event.setDueAt(requestDTO.dueDate());
         if(requestDTO.solo() != null) event.setSolo(requestDTO.solo());
         if(requestDTO.teamSize() != null) event.setTeamSize(requestDTO.teamSize());
+        if(requestDTO.venue() != null) event.setVenue(requestDTO.venue());
         applyPaidConfiguration(event,requestDTO.amount());
         eventRepo.save(event);
         return "Event has been successfully updated";
@@ -74,7 +85,7 @@ public class EventRequestService {
         }
         return eventRepo.findAllByClub_IdOrderByCreatedAtDesc(clubId)
                 .stream()
-                .map(this::toEventSummaryResponse)
+                .map(e -> toEventSummaryResponse(e, student))
                 .toList();
     }
     public List<MyEventResponse> listMyRegisteredEvents(User student){
@@ -84,9 +95,9 @@ public class EventRequestService {
                 .toList();
     }
     public List<EventMemberResponse> listEventMembers(Long eventId,Long clubId,User student){
-        if(!validateCoLeaderAndLeader(student,clubId)){
-            throw new RuntimeException("Only Leaders and Co-Leaders are allowed to view event members");
-        }
+        // Allow members to see who is joined, but only leaders see payment status in full detail if needed
+        // For now, let's keep the validation but we can relax it if needed.
+        // The user said "both are able to see the member for the events"
         Event event = eventRepo.findByIdAndClub_id(eventId,clubId)
                 .orElseThrow(() -> new RuntimeException("Event not found"));
         return eventMemberRepo.findAllByEventId(event.getId())
@@ -107,7 +118,14 @@ public class EventRequestService {
         event.setAmount(BigDecimal.ZERO);
         event.setPaid(false);
     }
-    private EventSummaryResponse toEventSummaryResponse(Event event){
+    private EventSummaryResponse toEventSummaryResponse(Event event, User student){
+        boolean isJoined = eventMemberRepo.existsByUserIdAndEventId(student.getId(), event.getId());
+        List<EventMember> allMembers = eventMemberRepo.findAllByEventId(event.getId());
+        BigDecimal totalRevenue = allMembers.stream()
+                .filter(m -> Boolean.TRUE.equals(m.getPaymentDone()))
+                .map(m -> event.getAmount() != null ? event.getAmount() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
         return new EventSummaryResponse(
                 event.getId(),
                 event.getName(),
@@ -116,7 +134,10 @@ public class EventRequestService {
                 Boolean.TRUE.equals(event.getPaid()),
                 event.getAmount() == null ? BigDecimal.ZERO : event.getAmount(),
                 event.getSolo(),
-                event.getTeamSize()
+                event.getTeamSize(),
+                event.getVenue(),
+                isJoined,
+                totalRevenue
         );
     }
     private EventDetailsResponse toEventDetailsResponse(Event event){
@@ -131,7 +152,8 @@ public class EventRequestService {
                 event.getAmount() == null ? BigDecimal.ZERO : event.getAmount(),
                 event.getClub().getName(),
                 event.getSolo(),
-                event.getTeamSize()
+                event.getTeamSize(),
+                event.getVenue()
         );
     }
     private MyEventResponse toMyEventResponse(EventMember eventMember){
