@@ -54,7 +54,12 @@ function NavLinks({ links, onClose }: { links: typeof studentLinks; onClose?: ()
               {isActive && (
                 <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-white rounded-full" />
               )}
-              <link.icon className={`h-[17px] w-[17px] shrink-0 ${isActive ? "text-white" : "text-white/30 group-hover:text-white/60"}`} />
+              <div className="relative">
+                <link.icon className={`h-[17px] w-[17px] shrink-0 ${isActive ? "text-white" : "text-white/30 group-hover:text-white/60"}`} />
+                {link.to === "/student/notifications" && notifCtx.unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full border border-black animate-pulse" />
+                )}
+              </div>
               <span className="truncate">{link.label}</span>
 
               {isStudent && link.to === "/student/notifications" && notifCtx.unreadCount > 0 && (

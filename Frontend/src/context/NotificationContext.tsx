@@ -28,6 +28,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const handleClubInvite = useCallback((invite: { clubId: number; clubName: string; description: string; leaderName: string }) => {
+    setUnreadCount(prev => prev + 1);
     toast(`📣 New Club Broadcast: ${invite.clubName}`, {
       description: `${invite.leaderName} invited you: ${invite.description}`,
       action: {

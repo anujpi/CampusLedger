@@ -9,9 +9,10 @@ interface PaymentGatewayProps {
   userEmail: string;
   onSuccess: () => Promise<void>;
   onClose: () => void;
+  recipientName?: string;
 }
 
-export function PaymentGateway({ amount, title, userName, userEmail, onSuccess, onClose }: PaymentGatewayProps) {
+export function PaymentGateway({ amount, title, userName, userEmail, onSuccess, onClose, recipientName }: PaymentGatewayProps) {
   const [paymentStep, setPaymentStep] = useState<"card" | "processing" | "success">("card");
   const [paymentMethod, setPaymentMethod] = useState<"card" | "upi" | "netbanking">("card");
 
@@ -39,7 +40,13 @@ export function PaymentGateway({ amount, title, userName, userEmail, onSuccess, 
               <span className="font-bold text-slate-800 tracking-tight">CampusPay</span>
             </div>
             <p className="text-slate-500 text-sm font-medium mb-2">Subscribe to</p>
-            <h3 className="text-2xl font-bold text-slate-800 mb-6">{title}</h3>
+            <h3 className="text-2xl font-bold text-slate-800 mb-1">{title}</h3>
+            {recipientName && (
+              <p className="text-indigo-600 text-xs font-extrabold uppercase tracking-widest mb-6">
+                Paying to: {recipientName}
+              </p>
+            )}
+            {!recipientName && <div className="mb-6" />}
             <div className="flex items-baseline gap-1">
               <span className="text-4xl font-extrabold text-slate-900">₹{amount}</span>
               <span className="text-slate-500 font-medium">INR</span>

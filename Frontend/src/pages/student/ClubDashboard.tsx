@@ -25,6 +25,9 @@ interface ClubEvent {
   amount: number;
   solo: boolean;
   teamSize?: number;
+  venue?: string;
+  isJoined?: boolean;
+  totalRevenue?: number;
   status?: "idle" | "loading" | "confirmed";
 }
 
@@ -51,7 +54,10 @@ export default function ClubDashboard() {
 
   const [events, setEvents] = useState<ClubEvent[]>([]);
   const [isCreatingEvent, setIsCreatingEvent] = useState(false);
-  const [newEvent, setNewEvent] = useState({ name: "", description: "", dueDate: "", amount: "0", solo: true, teamSize: "2" });
+  const [newEvent, setNewEvent] = useState({ name: "", description: "", dueDate: "", amount: "0", solo: true, teamSize: "2", venue: "" });
+  
+  const [viewingEventMembers, setViewingEventMembers] = useState<{ id: number, name: string } | null>(null);
+  const [eventMembers, setEventMembers] = useState<any[]>([]);
   
   const [pendingPayment, setPendingPayment] = useState<{ eventId: number, eventMemberId: number, amount: number, title: string } | null>(null);
   const [joiningEvent, setJoiningEvent] = useState<ClubEvent | null>(null);
@@ -84,7 +90,7 @@ export default function ClubDashboard() {
       })
       .then(([m, evs]) => {
         setMembers(m);
-        setEvents(evs.map(e => ({ ...e, status: "idle" })));
+        setEvents(evs.map(e => ({ ...e, status: e.isJoined ? "confirmed" : "idle" })));
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
@@ -220,7 +226,17 @@ export default function ClubDashboard() {
       setTeamInfo({ teamName: "", teamDetails: "" });
     } catch (e: any) {
       toast.error(e.message);
-      setEvents(prev => prev.map(ev => ev.id === event.id ? { ...ev, status: "idle" } : ev));
+      setEvents(prev => prev.map(ev => ev.id === event.id ? { ...ev, status: ev.isJoined ? "confirmed" : "idle" } : ev));
+    }
+  };
+
+  const fetchEventMembers = async (ev: ClubEvent) => {
+    setViewingEventMembers({ id: ev.id, name: ev.name });
+    try {
+      const data = await api<any[]>(`/api/event/members/${ev.id}/${clubId}`);
+      setEventMembers(data);
+    } catch (e: any) {
+      toast.error(e.message);
     }
   };
 
@@ -236,14 +252,15 @@ export default function ClubDashboard() {
           dueDate: newEvent.dueDate, 
           amount: parseFloat(newEvent.amount) || 0,
           solo: newEvent.solo,
-          teamSize: newEvent.solo ? null : parseInt(newEvent.teamSize)
+          teamSize: newEvent.solo ? null : parseInt(newEvent.teamSize),
+          venue: newEvent.venue
         },
       });
       toast.success("Event created successfully!");
       setIsCreatingEvent(false);
       const evs = await api<ClubEvent[]>(`/api/event/club/${clubId}`);
-      setEvents(evs.map(e => ({ ...e, status: "idle" })));
-      setNewEvent({ name: "", description: "", dueDate: "", amount: "0", solo: true, teamSize: "2" });
+      setEvents(evs.map(e => ({ ...e, status: e.isJoined ? "confirmed" : "idle" })));
+      setNewEvent({ name: "", description: "", dueDate: "", amount: "0", solo: true, teamSize: "2", venue: "" });
     } catch (e: any) {
       toast.error(e.message);
     }
@@ -417,8 +434,19 @@ export default function ClubDashboard() {
                             {ev.paid && <span className="text-[10px] font-bold bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded-md border border-amber-500/20">₹{ev.amount}</span>}
                           </div>
                         </div>
-                        <p className="text-xs font-mono text-white/30 mb-2">{new Date(ev.dueAt).toLocaleString()}</p>
+                        <p className="text-xs font-mono text-white/30 mb-1">{new Date(ev.dueAt).toLocaleString()}</p>
+                        {ev.venue && <p className="text-[10px] font-bold text-indigo-400/60 uppercase tracking-widest mb-2 flex items-center gap-1">📍 {ev.venue}</p>}
                         <p className="text-xs text-white/40 mb-3 line-clamp-2">{ev.description}</p>
+                        <div className="flex gap-2 mb-3">
+                          <button onClick={() => fetchEventMembers(ev)} className="flex-1 py-1.5 rounded-lg text-[10px] font-extrabold uppercase bg-white/[0.04] text-white/40 border border-white/10 hover:bg-white/[0.08] hover:text-white transition-all">
+                            View Roster
+                          </button>
+                          {isLeader && ev.paid && (
+                            <div className="flex-1 py-1.5 rounded-lg text-[10px] font-extrabold uppercase bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center justify-center">
+                              Revenue: ₹{ev.totalRevenue || 0}
+                            </div>
+                          )}
+                        </div>
                         {!isPast && (
                           <button onClick={() => handleJoinEvent(ev)} disabled={ev.status === "loading" || ev.status === "confirmed"} className={`mt-2 px-4 py-1.5 rounded-lg text-xs font-bold w-full border transition-colors ${ev.status === "confirmed" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-white text-black hover:bg-white/90"}`}>
                             {ev.status === "loading" ? "Processing..." : ev.status === "confirmed" ? "Registered ✓" : "Join Event"}
@@ -683,6 +711,10 @@ export default function ClubDashboard() {
                 <textarea required value={newEvent.description} onChange={e => setNewEvent({...newEvent, description: e.target.value})} className="w-full bg-white/[0.04] border border-white/10 rounded-xl px-4 py-2.5 text-sm font-medium text-white focus:outline-none focus:border-white/20 resize-none h-24" placeholder="What's happening?" />
               </div>
               <div>
+                <label className="block text-xs font-bold text-white/30 uppercase tracking-wider mb-1.5">Venue</label>
+                <input type="text" value={newEvent.venue} onChange={e => setNewEvent({...newEvent, venue: e.target.value})} className="w-full bg-white/[0.04] border border-white/10 rounded-xl px-4 py-2.5 text-sm font-medium text-white focus:outline-none focus:border-white/20" placeholder="e.g. Auditorium 1" />
+              </div>
+              <div>
                 <label className="block text-xs font-bold text-white/30 uppercase tracking-wider mb-1.5">Date & Time</label>
                 <input required type="datetime-local" value={newEvent.dueDate} onChange={e => setNewEvent({...newEvent, dueDate: e.target.value})} className="w-full bg-white/[0.04] border border-white/10 rounded-xl px-4 py-2.5 text-sm font-medium text-white focus:outline-none focus:border-white/20" />
               </div>
@@ -723,16 +755,16 @@ export default function ClubDashboard() {
           userName={user?.fullName || ""}
           userEmail={user?.email || ""}
           onClose={() => {
-            setPendingPayment(null);
-            setEvents(prev => prev.map(ev => ev.id === pendingPayment.eventId ? { ...ev, status: "idle" } : ev));
+            setEvents(prev => prev.map(ev => ev.id === pendingPayment.eventId ? { ...ev, status: ev.isJoined ? "confirmed" : "idle" } : ev));
           }}
+          recipientName={club?.name}
           onSuccess={async () => {
             const token = localStorage.getItem("token");
             await fetch(`http://localhost:8080/api/event/payment/success?eventMemberId=${pendingPayment.eventMemberId}&txnId=sim_stripe_${Date.now()}`, {
                 method: "POST", headers: { "Authorization": `Bearer ${token}` }
             });
             toast.success("Payment successful! Registered for event.");
-            setEvents(prev => prev.map(ev => ev.id === pendingPayment.eventId ? { ...ev, status: "confirmed" } : ev));
+            setEvents(prev => prev.map(ev => ev.id === pendingPayment.eventId ? { ...ev, status: "confirmed", isJoined: true } : ev));
             setPendingPayment(null);
           }}
         />
@@ -772,6 +804,52 @@ export default function ClubDashboard() {
                     Register Team
                   </button>
                 </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ── EVENT MEMBERS MODAL ── */}
+      <AnimatePresence>
+        {viewingEventMembers && (
+          <div className="fixed inset-0 z-[400] flex items-center justify-center bg-black/90 backdrop-blur-xl p-4">
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-neutral-950 rounded-3xl p-8 max-w-lg w-full shadow-2xl border border-white/10 max-h-[80vh] flex flex-col">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="text-2xl font-bold text-white">Event Roster</h2>
+                  <p className="text-xs text-indigo-400 font-bold uppercase tracking-widest">{viewingEventMembers.name}</p>
+                </div>
+                <button onClick={() => setViewingEventMembers(null)} className="p-2 rounded-xl text-white/40 hover:text-white hover:bg-white/10 transition-colors">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
+                {eventMembers.length === 0 ? (
+                  <div className="py-20 text-center text-white/20 text-sm font-medium">No one has joined this event yet.</div>
+                ) : (
+                  eventMembers.map((m) => (
+                    <div key={m.eventMemberId} className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.05] flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-full bg-white/[0.04] border border-white/10 flex items-center justify-center text-indigo-400 font-bold">
+                          {m.userName?.charAt(0) || '?'}
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-white">{m.userName}</p>
+                          {m.teamName && <p className="text-[10px] text-white/40 font-bold uppercase tracking-wider">Team: {m.teamName}</p>}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {m.paymentDone ? (
+                          <span className="px-2 py-1 bg-emerald-500/10 text-emerald-400 text-[10px] font-bold rounded-md border border-emerald-500/20">PAID</span>
+                        ) : (
+                          <span className="px-2 py-1 bg-amber-500/10 text-amber-400 text-[10px] font-bold rounded-md border border-amber-500/20">PENDING</span>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </motion.div>
           </div>

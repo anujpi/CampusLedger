@@ -7,7 +7,7 @@ import { Receipt, X, Printer, Search, TrendingDown } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface Payment {
-  transactionId: string; feeTitle: string; semester: number;
+  transactionId: string; feeTitle: string; semester: number | null;
   amount: number; paymentMode: string; paidAt: string; isDelayed: boolean;
 }
 
@@ -155,7 +155,7 @@ export default function PaymentHistory() {
               </div>
               <div className="bg-slate-50 rounded-2xl p-5 mb-7 border border-slate-100">
                 <div className="flex justify-between mb-3">
-                  <div><h4 className="font-bold text-slate-800">{receiptTxn.feeTitle}</h4><p className="text-xs text-slate-500">Semester {receiptTxn.semester}</p></div>
+                  <div><h4 className="font-bold text-slate-800">{receiptTxn.feeTitle}</h4><p className="text-xs text-slate-500">{receiptTxn.semester ? `Semester ${receiptTxn.semester}` : 'Club / Event'}</p></div>
                   <span className="font-mono font-bold">{formatINR(receiptTxn.amount)}</span>
                 </div>
                 <div className="w-full h-px bg-slate-200 my-3" />

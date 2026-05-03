@@ -35,6 +35,7 @@ public class Event {
     private BigDecimal amount;
     private Boolean solo = false;
     private Integer teamSize;
+    private String venue;
     @PrePersist
     protected void onCreate(){
         this.createdAt = LocalDateTime.now();

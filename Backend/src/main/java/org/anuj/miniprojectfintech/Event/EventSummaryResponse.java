@@ -10,5 +10,8 @@ public record EventSummaryResponse(Long id,
                                    boolean paid,
                                    BigDecimal amount,
                                    Boolean solo,
-                                   Integer teamSize) {
+                                   Integer teamSize,
+                                   String venue,
+                                   boolean isJoined,
+                                   BigDecimal totalRevenue) {
 }

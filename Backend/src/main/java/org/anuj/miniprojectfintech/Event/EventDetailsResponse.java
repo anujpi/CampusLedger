@@ -13,5 +13,6 @@ public record EventDetailsResponse(Long id,
                                    BigDecimal amount,
                                    String clubName,
                                    Boolean solo,
-                                   Integer teamSize) {
+                                   Integer teamSize,
+                                   String venue) {
 }
