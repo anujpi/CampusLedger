@@ -205,7 +205,7 @@ export default function ClubDashboard() {
         }
       });
       
-      if (res.requiresPayment) {
+      if (res.paymentRequired) {
         setPendingPayment({ 
           eventId: event.id, 
           eventMemberId: res.eventMemberId, 

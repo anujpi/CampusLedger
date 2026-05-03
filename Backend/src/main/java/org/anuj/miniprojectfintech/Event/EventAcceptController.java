@@ -19,7 +19,7 @@ public class EventAcceptController{
             @RequestBody EventMemberDTO memberDTO, @AuthenticationPrincipal MyCustomUserDetails myCustomUserDetails
             ){
         try {
-            return ResponseEntity.ok(java.util.Map.of("message", eventAcceptService.acceptEventRequest(clubId, memberDTO, myCustomUserDetails.getUser())));
+            return ResponseEntity.ok(eventAcceptService.acceptEventRequest(clubId, memberDTO, myCustomUserDetails.getUser()));
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.badRequest().body(java.util.Map.of("error", e.getMessage()));
