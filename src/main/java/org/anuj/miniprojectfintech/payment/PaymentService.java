@@ -72,7 +72,18 @@ public class PaymentService {
     }
 
     public List<PaymentHistoryDTO> getPaymentHistory(User user) {
-        return paymentRepo.findByUser(user).stream()
+        // Collect payments via direct user_id link (new records)
+        List<Payment> byUser = paymentRepo.findByUser(user);
+        // Collect payments via studentFee.student link (old records before user_id was added)
+        List<Payment> byStudentFee = paymentRepo.findByStudentFee_Student(user);
+
+        // Merge, deduplicate by id
+        java.util.Set<Long> seen = new java.util.HashSet<>();
+        java.util.List<Payment> all = new java.util.ArrayList<>();
+        for (Payment p : byUser) { if (seen.add(p.getId())) all.add(p); }
+        for (Payment p : byStudentFee) { if (seen.add(p.getId())) all.add(p); }
+
+        return all.stream()
                 .map(p -> new PaymentHistoryDTO(
                         p.getTransactionId(),
                         p.getStudentFee() != null ? p.getStudentFee().getFeeRequest().getTitle() : (p.getEvent() != null ? p.getEvent().getName() : "Unknown"),
@@ -83,9 +94,16 @@ public class PaymentService {
                         p.getIsDelayed()
                 )).collect(Collectors.toList());
     }
+
     @Transactional
-    public List<PaymentHistoryDTO> getSemesterWisePaymentHistory(User user,Integer semester) {
-        return paymentRepo.findByUser(user).stream()
+    public List<PaymentHistoryDTO> getSemesterWisePaymentHistory(User user, Integer semester) {
+        // Same dual fetch + merge
+        java.util.Set<Long> seen = new java.util.HashSet<>();
+        java.util.List<Payment> all = new java.util.ArrayList<>();
+        for (Payment p : paymentRepo.findByUser(user)) { if (seen.add(p.getId())) all.add(p); }
+        for (Payment p : paymentRepo.findByStudentFee_Student(user)) { if (seen.add(p.getId())) all.add(p); }
+
+        return all.stream()
                 .filter(p -> p.getStudentFee() == null || p.getStudentFee().getFeeRequest().getSemester().equals(semester))
                 .map(p -> new PaymentHistoryDTO(
                         p.getTransactionId(),
