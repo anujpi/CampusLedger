@@ -90,7 +90,7 @@ public class ClubController {
                 "leaderName", currentUser.getUser().getFullName()
         );
         messagingTemplate.convertAndSend("/topic/club-invites", (Object)payload);
-        return ResponseEntity.ok(java.util.Map.of("message", "Broadcast sent"));
+        return ResponseEntity.ok(Map.of("message", "Broadcast sent").toString());
     }
 
 }
