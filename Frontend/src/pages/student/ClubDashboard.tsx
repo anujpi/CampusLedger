@@ -233,7 +233,7 @@ export default function ClubDashboard() {
   const fetchEventMembers = async (ev: ClubEvent) => {
     setViewingEventMembers({ id: ev.id, name: ev.name });
     try {
-      const data = await api<any[]>(`/api/event/members/${ev.id}/${clubId}`);
+      const data = await api<any[]>(`/api/event/${clubId}/${ev.id}/members`);
       setEventMembers(data);
     } catch (e: any) {
       toast.error(e.message);

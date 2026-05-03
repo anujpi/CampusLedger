@@ -52,7 +52,7 @@ export default function StudentDashboard() {
     Promise.all([
       api<Overview>("/api/student/overview").then(setOverview),
       api<PaymentHistoryDTO[]>("/api/student/payment-history").then(setTransactions),
-      api<StudentFee[]>("/api/students/pendingfees").then(setPendingFees),
+      api<StudentFee[]>("/api/student/fees").then(setPendingFees),
     ]).catch(err => setError(err instanceof Error ? err.message : "Failed to load"))
       .finally(() => setLoading(false));
   }, []);
