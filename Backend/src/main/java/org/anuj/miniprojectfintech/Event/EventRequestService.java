@@ -8,6 +8,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -42,7 +44,7 @@ public class EventRequestService {
 
         // Notify all club members about the new event
         simpMessagingTemplate.convertAndSend("/topic/club/" + clubId + "/chat",
-                java.util.Map.of("senderName", "System", "content", "📣 New Event Published: " + event.getName() + (event.getVenue() != null ? " @ " + event.getVenue() : ""), "isSystem", true));
+                Optional.of(Map.of("senderName", "System", "content", "📣 New Event Published: " + event.getName() + (event.getVenue() != null ? " @ " + event.getVenue() : ""), "isSystem", true)));
 
         return "Event '"+event.getName()+"' created successfully!";
     }
