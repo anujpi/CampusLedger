@@ -9,8 +9,6 @@ public interface PaymentRepo extends JpaRepository<Payment,Long> {
 
     List<Payment> findByUser(User user);
 
-    List<Payment> findByUserAndStudentFee_FeeRequest_Semester(User user, Integer semester);
-
-    @org.springframework.data.jpa.repository.Query("SELECT p FROM Payment p WHERE p.user = :user AND (p.studentFee.feeRequest.semester = :semester OR (p.event IS NOT NULL AND :semester IS NOT NULL))")
-    List<Payment> findHistory(User user, Integer semester);
+    // Fetch old payments that were saved before user_id column existed (linked via studentFee.student)
+    List<Payment> findByStudentFee_Student(User student);
 }
