@@ -74,7 +74,7 @@ public class FeeRequestService {
     }
 
     public List<StudentFee> getStudentFees(User student) {
-        return studentFeeRepo.findByStudent(student);
+        return studentFeeRepo.findByStudentAndFeeStatus(student, FeeStatus.PENDING);
     }
     @Transactional
     public List<StudentFee> getMySemesterFees(User user, Integer semester) {
