@@ -36,21 +36,21 @@ public class FeeRequestController {
         return ResponseEntity.ok(feeRequestService.getByYear(year));
     }
     @GetMapping("/student/fees")
-    @PreAuthorize("hasRole('STUDENT')")
+
     public ResponseEntity<List<StudentFee>> myFees(
             @AuthenticationPrincipal MyCustomUserDetails currentUser
             ){
         return ResponseEntity.ok(feeRequestService.getStudentFees(currentUser.getUser()));
     }
     @GetMapping("/student/fees/semester/{semester}")
-    @PreAuthorize("hasRole('STUDENT')")
+
     public ResponseEntity<List<StudentFee>> myFeesBySemester(
             @AuthenticationPrincipal MyCustomUserDetails currentUser,
             @PathVariable Integer semester
     ){
         return ResponseEntity.ok(feeRequestService.getMySemesterFees(currentUser.getUser(),semester));
     }
-    @PreAuthorize("hasRole('STUDENT')")
+
     @GetMapping("/student/notifications/fees")
     public ResponseEntity<Page<FeeNotificationDTO>> feeNotification(
             @AuthenticationPrincipal MyCustomUserDetails currentUser,
