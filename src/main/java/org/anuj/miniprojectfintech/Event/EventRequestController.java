@@ -21,27 +21,27 @@ public class EventRequestController {
             @RequestBody RequestDTO requestDTO, @AuthenticationPrincipal MyCustomUserDetails myCustomUserDetails
             ){
         try {
-            return ResponseEntity.ok(eventRequestService.sendRequest(clubId, requestDTO,myCustomUserDetails.getUser()));
+            return ResponseEntity.ok(java.util.Map.of("message", eventRequestService.sendRequest(clubId, requestDTO,myCustomUserDetails.getUser())));
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.badRequest().body(e.getMessage());
+            return ResponseEntity.badRequest().body(java.util.Map.of("error", e.getMessage()));
         }
     }
     @DeleteMapping("/request")
-    public ResponseEntity<String> deleteRequest(
+    public ResponseEntity<?> deleteRequest(
             @AuthenticationPrincipal MyCustomUserDetails myCustomUserDetails
             ,@RequestParam Long eventId,@RequestParam Long clubId
     ){
-        return ResponseEntity.ok(eventRequestService.deleteRequest(myCustomUserDetails.getUser(),eventId,clubId));
+        return ResponseEntity.ok(java.util.Map.of("message", eventRequestService.deleteRequest(myCustomUserDetails.getUser(),eventId,clubId)));
     }
     @PutMapping("/request/{clubId}/{eventId}")
-    public ResponseEntity<String> updateEvent(
+    public ResponseEntity<?> updateEvent(
             @AuthenticationPrincipal MyCustomUserDetails myCustomUserDetails,
             @PathVariable Long clubId,
             @PathVariable Long eventId,
             @RequestBody RequestDTO requestDTO
     ){
-        return ResponseEntity.ok(eventRequestService.updateEvent(eventId,clubId,requestDTO,myCustomUserDetails.getUser()));
+        return ResponseEntity.ok(java.util.Map.of("message", eventRequestService.updateEvent(eventId,clubId,requestDTO,myCustomUserDetails.getUser())));
     }
     @GetMapping("/club/{clubId}")
     public ResponseEntity<List<EventSummaryResponse>> listEventsByClub(

@@ -19,26 +19,26 @@ public class EventAcceptController{
             @RequestBody EventMemberDTO memberDTO, @AuthenticationPrincipal MyCustomUserDetails myCustomUserDetails
             ){
         try {
-            return ResponseEntity.ok(eventAcceptService.acceptEventRequest(clubId, memberDTO, myCustomUserDetails.getUser()));
+            return ResponseEntity.ok(java.util.Map.of("message", eventAcceptService.acceptEventRequest(clubId, memberDTO, myCustomUserDetails.getUser())));
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.badRequest().body(e.getMessage());
+            return ResponseEntity.badRequest().body(java.util.Map.of("error", e.getMessage()));
         }
     }
     @DeleteMapping("/registration")
-    public ResponseEntity<String> unregisterEvent(
+    public ResponseEntity<?> unregisterEvent(
             @RequestParam Long eventId,
             @RequestParam Long clubId,
             @AuthenticationPrincipal MyCustomUserDetails myCustomUserDetails
     ){
-        return ResponseEntity.ok(eventAcceptService.unregisterEvent(eventId,clubId,myCustomUserDetails.getUser()));
+        return ResponseEntity.ok(java.util.Map.of("message", eventAcceptService.unregisterEvent(eventId,clubId,myCustomUserDetails.getUser())));
     }
     @PostMapping("/payment/success")
-    public ResponseEntity<String> markPaymentSuccess(
+    public ResponseEntity<?> markPaymentSuccess(
             @RequestParam Long eventMemberId,
             @RequestParam String txnId,
             @AuthenticationPrincipal MyCustomUserDetails myCustomUserDetails
     ){
-        return ResponseEntity.ok(eventAcceptService.markPaymentSuccess(eventMemberId,txnId,myCustomUserDetails.getUser()));
+        return ResponseEntity.ok(java.util.Map.of("message", eventAcceptService.markPaymentSuccess(eventMemberId,txnId,myCustomUserDetails.getUser())));
     }
 }

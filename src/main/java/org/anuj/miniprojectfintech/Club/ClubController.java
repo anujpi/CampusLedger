@@ -20,30 +20,30 @@ public class ClubController {
     // to add new clubs
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/new")
-    public ResponseEntity<String> newClub(@RequestBody NewClubDTO newClubDTO){
-        return ResponseEntity.ok(clubService.addNewCLub(newClubDTO));
+    public ResponseEntity<?> newClub(@RequestBody NewClubDTO newClubDTO){
+        return ResponseEntity.ok(java.util.Map.of("message", clubService.addNewCLub(newClubDTO)));
     }
     // to add leaders to a club
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/addleaders/{clubId}/{userId}")
-    public ResponseEntity<String> addLeaders(@PathVariable Long clubId, @PathVariable Long userId){
+    public ResponseEntity<?> addLeaders(@PathVariable Long clubId, @PathVariable Long userId){
         return ResponseEntity.ok(
-                clubService.addLeader(clubId,userId)
+                java.util.Map.of("message", clubService.addLeader(clubId,userId))
         );
     }//to add coleaders
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/addColeaders/{clubId}/{userId}")
-    public ResponseEntity<String> addCoLeaders(@PathVariable Long clubId, @PathVariable Long userId){
+    public ResponseEntity<?> addCoLeaders(@PathVariable Long clubId, @PathVariable Long userId){
         return ResponseEntity.ok(
-                clubService.addCoLeader(clubId,userId)
+                java.util.Map.of("message", clubService.addCoLeader(clubId,userId))
         );
     }
     // add members to the clubs ( only those with the role of leader and coLeaders)
     // request -> accept/reject and then add
     @PreAuthorize("hasRole('STUDENT')")
     @PostMapping("/add/{clubId}/{userId}")
-    public ResponseEntity<String> addMembers(@PathVariable Long clubId, @PathVariable Long userId, @AuthenticationPrincipal MyCustomUserDetails currentUser){
-        return ResponseEntity.ok(clubService.addMembers(clubId,userId,currentUser.getUser()));
+    public ResponseEntity<?> addMembers(@PathVariable Long clubId, @PathVariable Long userId, @AuthenticationPrincipal MyCustomUserDetails currentUser){
+        return ResponseEntity.ok(java.util.Map.of("message", clubService.addMembers(clubId,userId,currentUser.getUser())));
     }
     @PreAuthorize("hasRole('STUDENT')")
     @PostMapping("/request")
@@ -57,8 +57,8 @@ public class ClubController {
     }
     @PreAuthorize("hasRole('STUDENT')")
     @PostMapping("/reject/{clubId}/{userId}")
-    public ResponseEntity<String> rejectRequest(@AuthenticationPrincipal MyCustomUserDetails currentUser,@PathVariable Long clubId, @PathVariable Long userId) {
-        return ResponseEntity.ok(clubService.rejectRequest(currentUser.getUser(), clubId, userId));
+    public ResponseEntity<?> rejectRequest(@AuthenticationPrincipal MyCustomUserDetails currentUser,@PathVariable Long clubId, @PathVariable Long userId) {
+        return ResponseEntity.ok(java.util.Map.of("message", clubService.rejectRequest(currentUser.getUser(), clubId, userId)));
     }
     @GetMapping("/find/all")
     public ResponseEntity<List<Club>> viewAllClubs(){
@@ -90,7 +90,7 @@ public class ClubController {
                 "leaderName", currentUser.getUser().getFullName()
         );
         messagingTemplate.convertAndSend("/topic/club-invites", (Object)payload);
-        return ResponseEntity.ok("Broadcast sent");
+        return ResponseEntity.ok(java.util.Map.of("message", "Broadcast sent"));
     }
 
 }
