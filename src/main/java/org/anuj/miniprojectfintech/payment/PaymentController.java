@@ -19,7 +19,7 @@ public class PaymentController {
 
     // student makes a payment
     @PostMapping("/pay")
-    @PreAuthorize("hasRole('STUDENT')")
+    @PreAuthorize("hasAnyRole('STUDENT', 'ADMIN')")
     public ResponseEntity<PaymentReceipt> pay(
             @AuthenticationPrincipal MyCustomUserDetails currentUser,
             @Valid @RequestBody MakePaymentRequest request
@@ -29,22 +29,22 @@ public class PaymentController {
         return ResponseEntity.ok(receipt);
     }
     @GetMapping("/payment-history")
-    @PreAuthorize("hasRole('STUDENT')")
+    @PreAuthorize("hasAnyRole('STUDENT', 'ADMIN')")
     public ResponseEntity<List<PaymentHistoryDTO>> history(
             @AuthenticationPrincipal MyCustomUserDetails currentUser
     ){
         return ResponseEntity.ok(paymentService.getPaymentHistory(currentUser.getUser()));
     }
     @GetMapping("/payment-history/semester/{semester}")
-    @PreAuthorize("hasRole('STUDENT')")
+    @PreAuthorize("hasAnyRole('STUDENT', 'ADMIN')")
     public ResponseEntity<List<PaymentHistoryDTO>> historySemesterWise(
             @AuthenticationPrincipal MyCustomUserDetails currentUser,
             @PathVariable Integer semester
     ) {
         return ResponseEntity.ok(paymentService.getSemesterWisePaymentHistory(currentUser.getUser(), semester));
     }
-    @PostMapping("pay/event")
-    @PreAuthorize("hasRole('STUDENT')")
+    @PostMapping("/pay/event")
+    @PreAuthorize("hasAnyRole('STUDENT', 'ADMIN')")
     public ResponseEntity<PaymentReceipt> makeEventPayment(
             @AuthenticationPrincipal MyCustomUserDetails myCustomUserDetails,
             @Valid @RequestBody MakeEventPaymentRequest request
