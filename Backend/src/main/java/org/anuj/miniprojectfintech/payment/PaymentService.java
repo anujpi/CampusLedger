@@ -3,6 +3,10 @@ package org.anuj.miniprojectfintech.payment;
 import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.anuj.miniprojectfintech.Event.Event;
+import org.anuj.miniprojectfintech.Event.EventMember;
+import org.anuj.miniprojectfintech.Event.EventMemberRepo;
+import org.anuj.miniprojectfintech.Event.MakeEventPaymentRequest;
 import org.anuj.miniprojectfintech.User.User;
 import org.springframework.stereotype.Service;
 
@@ -16,6 +20,8 @@ import java.util.stream.Collectors;
 public class PaymentService {
     private final PaymentRepo paymentRepo;
     private final StudentFeeRepo studentFeeRepo;
+    private final EventMemberRepo eventMemberRepo;
+
     @Transactional
     public PaymentReceipt makePayment(User user, @Valid MakePaymentRequest request) {
         //check if this student fee belongs to this student
@@ -88,5 +94,48 @@ public class PaymentService {
                         p.getPaymentMode().name(),
                         p.getPaidAt(),
                         p.getIsDelayed()
-                )).collect(Collectors.toList());    }
+                )).collect(Collectors.toList());
+    }
+    // payment for events
+    @Transactional
+    public PaymentReceipt makeEventPayment(User user , @Valid MakeEventPaymentRequest request){
+        EventMember member = eventMemberRepo.findById(request.eventMemberId()).orElseThrow(()->new RuntimeException("Event registeration not found"));
+        if(!member.getUser().getId().equals(user.getId())){
+            throw new RuntimeException("This event registration doesnt belong to you");
+        }
+        if(Boolean.TRUE.equals(member.getPaymentDone())){
+            throw new RuntimeException("Payment already completed for this registration");
+        }
+        Event event = member.getEvent();
+
+        if(!Boolean.TRUE.equals(event.getPaid()) || event.getAmount() == null || event.getAmount().signum() <= 0){
+            throw new RuntimeException("This event does not require payments");
+        }
+        LocalDate today = LocalDate.now();
+        String transactionId = "TXN-"+UUID.randomUUID().toString().substring(0,8).toUpperCase();
+        Payment payment = new Payment();
+        payment.setEvent(event);
+        payment.setAmount(event.getAmount());
+        payment.setPaymentMode(request.paymentMode());
+        payment.setPaymentGateway(PaymentGateway.MANUAL);
+        payment.setTransactionId(transactionId);
+        payment.setPaymentStatus(PaymentStatus.SUCCESS);
+        payment.setIsDelayed(false);
+        payment.setPaidAt(today);
+        paymentRepo.save(payment);
+        member.setPaymentDone(true);
+        member.setPaymentTxnId(transactionId);
+        eventMemberRepo.save(member);
+        return new PaymentReceipt(
+                transactionId,
+                user.getFullName(),
+                event.getName(),
+                null,
+                event.getAmount(),
+                request.paymentMode(),
+                PaymentStatus.SUCCESS,
+                false,
+                today
+        );
+    }
 }

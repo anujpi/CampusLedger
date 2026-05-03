@@ -2,7 +2,12 @@ package org.anuj.miniprojectfintech.payment;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.anuj.miniprojectfintech.Notification.FeeNotificationDTO;
 import org.anuj.miniprojectfintech.config.MyCustomUserDetails;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -44,5 +49,14 @@ public class FeeRequestController {
             @PathVariable Integer semester
     ){
         return ResponseEntity.ok(feeRequestService.getMySemesterFees(currentUser.getUser(),semester));
+    }
+    @PreAuthorize("hasRole('STUDENT')")
+    @GetMapping("/student/notifications/fees")
+    public ResponseEntity<Page<FeeNotificationDTO>> feeNotification(
+            @AuthenticationPrincipal MyCustomUserDetails currentUser,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size)
+    {
+        return ResponseEntity.ok(feeRequestService.getFeeNotifications(currentUser.getUser(),page,size));
     }
 }

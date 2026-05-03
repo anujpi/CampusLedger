@@ -2,6 +2,8 @@ package org.anuj.miniprojectfintech.payment;
 
 import org.anuj.miniprojectfintech.User.User;
 import org.anuj.miniprojectfintech.config.MyCustomUserDetails;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -14,4 +16,5 @@ public interface StudentFeeRepo extends JpaRepository<StudentFee,Long> {
     List<StudentFee> findByStudentAndFeeRequest_Semester(User user, Integer semester);
 
     List<StudentFee> findByStudentAndFeeStatus(User student, FeeStatus feeStatus);
+    Page<StudentFee> findByStudent(User user, Pageable pageable);
 }

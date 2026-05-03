@@ -14,4 +14,6 @@ public interface UserRepo extends JpaRepository<User,Long> {
     List<String>findDistinctYears();
 
     List<User> findByYearAndRole(String year, Role role);
+
+    Optional<User>findByFullName(String name);
 }

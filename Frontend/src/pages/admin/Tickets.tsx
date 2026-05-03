@@ -5,6 +5,8 @@ import { ChatView } from "@/components/ChatView";
 import { SkeletonTable } from "@/components/Skeletons";
 import { EmptyState } from "@/components/EmptyState";
 import { timeAgo } from "@/lib/format";
+import { MessageSquare, ChevronRight, Clock, User, CheckCircle } from "lucide-react";
+import { motion } from "framer-motion";
 
 interface OpenTicket { id: string; studentName: string; subject: string; createdAt: string; }
 interface MyTicket { id: string; studentName: string; subject: string; status: "OPEN" | "IN_PROGRESS" | "RESOLVED" | "CLOSED"; lastMessageAt: string; }
@@ -17,12 +19,11 @@ export default function AdminTickets() {
   const [error, setError] = useState("");
   const [activeTicket, setActiveTicket] = useState<{ id: string; subject: string; status: string } | null>(null);
 
-  const fetchOpen = () => api<OpenTicket[]>("/api/admin/chatbox/open").then(setOpenTickets).catch((e) => setError(e.message));
-  const fetchMine = () => api<MyTicket[]>("/api/admin/chatbox/mine").then(setMyTickets).catch((e) => setError(e.message));
+  const fetchOpen = () => api<OpenTicket[]>("/api/admin/chatbox/open").then(setOpenTickets).catch(e => setError(e.message));
+  const fetchMine = () => api<MyTicket[]>("/api/admin/chatbox/mine").then(setMyTickets).catch(e => setError(e.message));
 
   const fetchAll = async () => {
-    setLoading(true);
-    setError("");
+    setLoading(true); setError("");
     await Promise.all([fetchOpen(), fetchMine()]);
     setLoading(false);
   };
@@ -32,117 +33,100 @@ export default function AdminTickets() {
   const takeTicket = async (id: string) => {
     try {
       await api(`/api/admin/chatbox/${id}/take`, { method: "PATCH" });
-      setTab("mine");
-      fetchAll();
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to take ticket");
-    }
+      setTab("mine"); fetchAll();
+    } catch (e: unknown) { setError(e instanceof Error ? e.message : "Failed"); }
   };
 
-  if (activeTicket) {
-    return (
-      <div className="animate-fade-in-up">
-        <h1 className="text-[28px] font-semibold text-foreground tracking-tight mb-4">{activeTicket.subject}</h1>
-        <ChatView
-          ticketId={activeTicket.id}
-          ticketStatus={activeTicket.status}
-          onBack={() => { setActiveTicket(null); fetchAll(); }}
-          onStatusChange={fetchAll}
-          isAdmin
-        />
-      </div>
-    );
-  }
+  if (activeTicket) return (
+    <div className="w-full max-w-4xl mx-auto">
+      <h1 className="text-2xl font-bold text-white mb-4 truncate">{activeTicket.subject}</h1>
+      <ChatView ticketId={activeTicket.id} ticketStatus={activeTicket.status}
+        onBack={() => { setActiveTicket(null); fetchAll(); }} onStatusChange={fetchAll} isAdmin />
+    </div>
+  );
 
   return (
-    <div className="animate-fade-in-up">
-      <h1 className="text-[28px] font-semibold text-foreground tracking-tight mb-6">Tickets</h1>
+    <div className="w-full max-w-5xl mx-auto">
+      <div className="absolute top-0 right-0 w-64 h-64 bg-violet-500/5 rounded-full blur-[100px] pointer-events-none -z-10" />
 
-      <div className="flex gap-1 border-b border-border mb-6">
-        <button
-          onClick={() => setTab("open")}
-          className={`px-4 py-2.5 text-[13px] font-medium border-b-2 transition-all duration-150 ${tab === "open" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}
-        >
-          Open & Unassigned
-        </button>
-        <button
-          onClick={() => setTab("mine")}
-          className={`px-4 py-2.5 text-[13px] font-medium border-b-2 transition-all duration-150 ${tab === "mine" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}
-        >
-          My Tickets
-        </button>
+      <div className="mb-8">
+        <p className="text-xs font-bold text-white/20 uppercase tracking-[0.15em] mb-1">Admin Terminal</p>
+        <h1 className="text-3xl font-bold text-white tracking-tight">Support Queue</h1>
+        <p className="text-sm text-white/40 mt-1">{openTickets.length} unassigned · {myTickets.length} in my queue</p>
       </div>
 
-      {error && (
-        <div className="flex items-start gap-2 text-sm text-destructive bg-destructive/5 border border-destructive/10 rounded-lg px-3 py-2.5 mb-4">
-          <span>⚠</span><span>{error}</span>
-        </div>
-      )}
+      {/* Stats */}
+      <div className="grid grid-cols-3 gap-4 mb-6">
+        {[
+          { label: "Open Tickets", value: openTickets.length, color: "text-white" },
+          { label: "My Active", value: myTickets.filter(t => t.status !== "RESOLVED" && t.status !== "CLOSED").length, color: "text-amber-400" },
+          { label: "Resolved", value: myTickets.filter(t => t.status === "RESOLVED" || t.status === "CLOSED").length, color: "text-emerald-400" },
+        ].map(({ label, value, color }) => (
+          <div key={label} className="bg-white/[0.02] border border-white/[0.07] rounded-2xl p-4">
+            <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest mb-1">{label}</p>
+            <p className={`text-2xl font-black ${color}`}>{value}</p>
+          </div>
+        ))}
+      </div>
 
-      {loading ? (
-        <SkeletonTable cols={4} />
-      ) : tab === "open" ? (
-        openTickets.length === 0 ? (
-          <EmptyState title="No open tickets" description="All tickets have been assigned." />
-        ) : (
-          <div className="table-wrapper">
-            <table className="w-full text-sm">
-              <thead className="table-header">
-                <tr>
-                  <th className="table-th">Student</th>
-                  <th className="table-th">Subject</th>
-                  <th className="table-th">Created</th>
-                  <th className="table-th">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {openTickets.map((t) => (
-                  <tr key={t.id} className="border-t border-border hover:bg-accent/50 transition-colors">
-                    <td className="table-td text-foreground font-medium">{t.studentName}</td>
-                    <td className="table-td text-foreground">{t.subject}</td>
-                    <td className="table-td text-muted-foreground">{timeAgo(t.createdAt)}</td>
-                    <td className="table-td">
-                      <button onClick={() => takeTicket(t.id)} className="text-[13px] px-3 py-1.5 bg-primary text-primary-foreground rounded-lg font-medium hover:brightness-110 transition-all active:scale-[0.98]">
-                        Take Ticket
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      {/* Tabs */}
+      <div className="flex gap-1 bg-white/[0.02] border border-white/[0.07] rounded-xl p-1 w-fit mb-6">
+        {[{ id: "open", label: "Open & Unassigned" }, { id: "mine", label: "My Tickets" }].map(t => (
+          <button key={t.id} onClick={() => setTab(t.id as any)}
+            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${tab === t.id ? "bg-white/[0.07] text-white" : "text-white/30 hover:text-white/60"}`}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {error && <div className="text-red-400 text-sm bg-red-950/20 border border-red-900/30 rounded-xl p-3 mb-4">⚠ {error}</div>}
+
+      {loading ? <SkeletonTable cols={4} /> : tab === "open" ? (
+        openTickets.length === 0 ? <EmptyState title="No open tickets" description="All tickets have been assigned." /> : (
+          <div className="space-y-3">
+            {openTickets.map((t, i) => (
+              <motion.div key={t.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
+                className="flex items-center gap-4 p-5 bg-white/[0.02] border border-white/[0.07] rounded-2xl hover:bg-white/[0.04] transition-all">
+                <div className="w-10 h-10 rounded-xl bg-white/[0.04] border border-white/[0.07] flex items-center justify-center shrink-0">
+                  <User className="w-4 h-4 text-white/30" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-white text-sm">{t.studentName}</p>
+                  <p className="text-white/50 text-xs truncate mt-0.5">{t.subject}</p>
+                  <div className="flex items-center gap-1 mt-1">
+                    <Clock className="w-3 h-3 text-white/20" />
+                    <p className="text-[11px] text-white/25 font-medium">{timeAgo(t.createdAt)}</p>
+                  </div>
+                </div>
+                <button onClick={() => takeTicket(t.id)}
+                  className="px-4 py-2 rounded-xl bg-white text-black text-xs font-bold hover:bg-white/90 transition-all whitespace-nowrap">
+                  Take Ticket
+                </button>
+              </motion.div>
+            ))}
           </div>
         )
       ) : (
-        myTickets.length === 0 ? (
-          <EmptyState title="No tickets" description="You haven't taken any tickets yet." />
-        ) : (
-          <div className="table-wrapper">
-            <table className="w-full text-sm">
-              <thead className="table-header">
-                <tr>
-                  <th className="table-th">Student</th>
-                  <th className="table-th">Subject</th>
-                  <th className="table-th">Status</th>
-                  <th className="table-th">Last Activity</th>
-                  <th className="table-th">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {myTickets.map((t) => (
-                  <tr key={t.id} className="border-t border-border hover:bg-accent/50 transition-colors">
-                    <td className="table-td text-foreground font-medium">{t.studentName}</td>
-                    <td className="table-td text-foreground">{t.subject}</td>
-                    <td className="table-td"><StatusBadge status={t.status} /></td>
-                    <td className="table-td text-muted-foreground">{timeAgo(t.lastMessageAt)}</td>
-                    <td className="table-td">
-                      <button onClick={() => setActiveTicket(t)} className="text-[13px] text-primary font-medium hover:underline">
-                        Open
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        myTickets.length === 0 ? <EmptyState title="No tickets" description="You haven't taken any tickets yet." /> : (
+          <div className="space-y-3">
+            {myTickets.map((t, i) => (
+              <motion.div key={t.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
+                onClick={() => setActiveTicket(t)}
+                className="group flex items-center gap-4 p-5 bg-white/[0.02] border border-white/[0.07] rounded-2xl hover:bg-white/[0.04] hover:border-white/[0.12] cursor-pointer transition-all">
+                <div className="w-10 h-10 rounded-xl bg-white/[0.04] border border-white/[0.07] flex items-center justify-center shrink-0">
+                  <MessageSquare className="w-4 h-4 text-white/30" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-white text-sm">{t.studentName}</p>
+                  <p className="text-white/40 text-xs truncate mt-0.5">{t.subject}</p>
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  <StatusBadge status={t.status} />
+                  <p className="text-xs text-white/25 hidden sm:block">{timeAgo(t.lastMessageAt)}</p>
+                  <ChevronRight className="w-4 h-4 text-white/20 group-hover:text-white/50 transition-colors" />
+                </div>
+              </motion.div>
+            ))}
           </div>
         )
       )}

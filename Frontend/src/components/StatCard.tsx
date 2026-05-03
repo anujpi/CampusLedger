@@ -17,12 +17,12 @@ export function StatCard({
   const accent = accentClasses[borderColor];
 
   return (
-    <div className={`bg-card rounded-xl border border-border border-l-[3px] ${accent.border} p-5 card-elevated transition-all duration-200 hover:card-elevated-md hover:scale-[1.02] hover:-translate-y-0.5`}>
-      <div className="flex items-center gap-2 mb-3">
-        <div className={`w-2 h-2 rounded-full ${accent.dot}`} />
-        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{label}</p>
+    <div className="card-clean p-5 group flex flex-col justify-between h-32 hover:-translate-y-0.5">
+      <div className="flex items-center gap-2">
+        <div className={`w-1.5 h-1.5 rounded-full ${accent.dot} text-${borderColor}-500`} />
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{label}</p>
       </div>
-      <p className="text-2xl font-semibold text-foreground tracking-tight">{value}</p>
+      <p className="text-3xl font-semibold text-foreground tracking-tight">{value}</p>
     </div>
   );
 }

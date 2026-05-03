@@ -1,12 +1,15 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { formatINR, formatDate } from "@/lib/format";
+import { useAuth } from "@/lib/auth";
 import { SemesterTabs } from "@/components/SemesterTabs";
 import { StatusBadge } from "@/components/StatusBadge";
-import { Drawer } from "@/components/Drawer";
 import { ReceiptOverlay } from "@/components/ReceiptOverlay";
 import { SkeletonTable } from "@/components/Skeletons";
 import { EmptyState } from "@/components/EmptyState";
+import { Receipt, X, Printer } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { PaymentGateway } from "@/components/PaymentGateway";
 
 interface Fee {
   id: string;
@@ -27,15 +30,14 @@ interface ReceiptData {
 }
 
 export default function MyFees() {
+  const { user } = useAuth();
   const [semester, setSemester] = useState(1);
   const [fees, setFees] = useState<Fee[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [payingFee, setPayingFee] = useState<Fee | null>(null);
-  const [paymentMode, setPaymentMode] = useState("UPI");
-  const [payError, setPayError] = useState("");
-  const [paying, setPaying] = useState(false);
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
+  const [receiptViewFee, setReceiptViewFee] = useState<Fee | null>(null);
 
   const fetchFees = async (sem: number) => {
     setLoading(true);
@@ -56,24 +58,18 @@ export default function MyFees() {
 
   const handlePay = async () => {
     if (!payingFee) return;
-    setPaying(true);
-    setPayError("");
     try {
       const res = await api<ReceiptData>("/api/student/pay", {
         method: "POST",
-        body: { studentFeeId: payingFee.id, paymentMode },
+        body: { studentFeeId: payingFee.id, paymentMode: "CARD" },
       });
       setReceipt(res);
       setPayingFee(null);
       fetchFees(semester);
     } catch (e: unknown) {
-      setPayError(e instanceof Error ? e.message : "Payment failed");
-    } finally {
-      setPaying(false);
+      throw e; // Caught by PaymentGateway processPayment
     }
   };
-
-  const modes = ["UPI", "CARD", "NET_BANKING", "CASH"];
 
   return (
     <div className="animate-fade-in-up">
@@ -112,13 +108,20 @@ export default function MyFees() {
                   <td className="table-td">
                     {fee.feeStatus === "PENDING" ? (
                       <button
-                        onClick={() => { setPayingFee(fee); setPaymentMode("UPI"); setPayError(""); }}
+                        onClick={() => setPayingFee(fee)}
                         className="text-[13px] px-3 py-1.5 bg-primary text-primary-foreground rounded-lg font-medium hover:brightness-110 transition-all active:scale-[0.98]"
                       >
                         Pay Now
                       </button>
                     ) : (
-                      <span className="text-muted-foreground">—</span>
+                      <button
+                        onClick={() => setReceiptViewFee(fee)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-bold rounded-lg bg-white/5 border border-white/10 text-muted-foreground hover:text-foreground hover:border-white/20 transition-all"
+                        title="View Receipt"
+                      >
+                        <Receipt className="w-3.5 h-3.5" />
+                        Receipt
+                      </button>
                     )}
                   </td>
                 </tr>
@@ -128,47 +131,72 @@ export default function MyFees() {
         </div>
       )}
 
-      <Drawer open={!!payingFee} onClose={() => setPayingFee(null)} title="Make Payment">
-        {payingFee && (
-          <div className="space-y-6">
-            <div className="bg-accent/50 rounded-xl p-4">
-              <p className="text-sm text-muted-foreground">{payingFee.feeRequest.title}</p>
-              <p className="text-2xl font-semibold text-foreground mt-1">{formatINR(payingFee.amount)}</p>
-            </div>
-            <div className="space-y-2">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Payment Mode</p>
-              {modes.map((mode) => (
-                <label
-                  key={mode}
-                  className={`flex items-center gap-3 cursor-pointer px-3 py-2.5 rounded-lg border transition-all ${
-                    paymentMode === mode ? "border-primary bg-primary/5" : "border-border hover:border-foreground/20"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="paymentMode"
-                    value={mode}
-                    checked={paymentMode === mode}
-                    onChange={() => setPaymentMode(mode)}
-                    className="accent-primary"
-                  />
-                  <span className="text-sm text-foreground font-medium">{mode.replace("_", " ")}</span>
-                </label>
-              ))}
-            </div>
-            {payError && (
-              <div className="flex items-start gap-2 text-sm text-destructive bg-destructive/5 border border-destructive/10 rounded-lg px-3 py-2.5">
-                <span>⚠</span><span>{payError}</span>
-              </div>
-            )}
-            <button onClick={handlePay} disabled={paying} className="btn-primary">
-              {paying ? "Processing…" : "Confirm Payment"}
-            </button>
-          </div>
-        )}
-      </Drawer>
+      {payingFee && (
+        <PaymentGateway
+          amount={payingFee.amount}
+          title={payingFee.feeRequest.title}
+          userName={user?.fullName || ""}
+          userEmail={user?.email || ""}
+          onClose={() => setPayingFee(null)}
+          onSuccess={handlePay}
+        />
+      )}
 
       {receipt && <ReceiptOverlay data={receipt} onClose={() => setReceipt(null)} />}
+
+      {/* Receipt view for paid fees (no transaction detail available, show fee info) */}
+      <AnimatePresence>
+        {receiptViewFee && (
+          <div className="fixed inset-0 z-[300] flex items-center justify-center px-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/80 backdrop-blur-md print:hidden"
+              onClick={() => setReceiptViewFee(null)}
+            />
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="bg-neutral-950 w-full max-w-md p-8 rounded-3xl relative z-10 shadow-2xl border border-white/10 text-white"
+            >
+              <button onClick={() => setReceiptViewFee(null)} className="absolute top-4 right-4 p-2 rounded-full text-white/20 hover:bg-white/5 transition-colors print:hidden">
+                <X className="w-5 h-5" />
+              </button>
+              <div className="text-center mb-8 border-b border-dashed border-white/10 pb-8">
+                <div className="w-16 h-16 bg-white/[0.05] rounded-2xl flex items-center justify-center mx-auto mb-4 border border-white/10">
+                  <Receipt className="w-8 h-8 text-white" />
+                </div>
+                <h2 className="text-2xl font-bold text-white">CampusLedger</h2>
+                <p className="text-sm font-medium text-white/40">Official Payment Receipt</p>
+              </div>
+              <div className="bg-white/[0.02] rounded-2xl p-6 mb-8 border border-white/10">
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <h4 className="font-bold text-white">{receiptViewFee.feeRequest.title}</h4>
+                    <p className="text-xs font-medium text-white/40">Semester {receiptViewFee.feeRequest.semester}</p>
+                  </div>
+                  <span className="font-mono font-bold text-white">{formatINR(receiptViewFee.amount)}</span>
+                </div>
+                <div className="w-full h-px bg-white/10 my-4" />
+                <div className="flex justify-between items-center">
+                  <span className="font-bold text-white/60">Status</span>
+                  <span className="text-xs font-bold uppercase tracking-widest text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-md border border-emerald-500/20">
+                    {receiptViewFee.feeStatus}
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={() => window.print()}
+                className="w-full py-3.5 rounded-xl bg-white text-black font-bold hover:bg-white/90 transition-all flex items-center justify-center gap-2 print:hidden"
+              >
+                <Printer className="w-5 h-5" /> Download / Print PDF
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

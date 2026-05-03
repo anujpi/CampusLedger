@@ -4,6 +4,8 @@ import { useAuth } from "@/lib/auth";
 import { formatDateTime } from "@/lib/format";
 import { StatusBadge } from "@/components/StatusBadge";
 import { ArrowLeft, Send } from "lucide-react";
+import { useChat } from "@/hooks/useChat";
+import { useCallback } from "react";
 
 interface Message {
   id: string;
@@ -30,6 +32,13 @@ export function ChatView({ ticketId, ticketStatus, onBack, onStatusChange, isAdm
   const [error, setError] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState(ticketStatus);
+
+  const handleIncomingMessage = useCallback((msg: Message) => {
+  setMessages(prev => [...prev, msg]);
+  setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+}, []);
+
+useChat(handleIncomingMessage);
 
   const fetchMessages = async () => {
     try {
