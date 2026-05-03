@@ -33,9 +33,10 @@ public class Event {
     private LocalDateTime lastRegisterAt;
     private Boolean paid = false;
     private BigDecimal amount;
+    private Boolean solo = false;
+    private Integer teamSize;
     @PrePersist
     protected void onCreate(){
         this.createdAt = LocalDateTime.now();
     }
 }
-

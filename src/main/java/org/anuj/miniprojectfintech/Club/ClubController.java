@@ -3,15 +3,19 @@ package org.anuj.miniprojectfintech.Club;
 import lombok.RequiredArgsConstructor;
 import org.anuj.miniprojectfintech.config.MyCustomUserDetails;
 import org.springframework.http.ResponseEntity;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.parameters.P;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
+import java.util.Map;
+
 @RequiredArgsConstructor
 @RestController
 @RequestMapping("/api/club")
 public class ClubController {
+    private final SimpMessagingTemplate messagingTemplate;
     private final ClubService clubService;
     // to add new clubs
     @PreAuthorize("hasRole('ADMIN')")
@@ -72,6 +76,21 @@ public class ClubController {
     @GetMapping("/members/{clubId}")
     public ResponseEntity<List<ClubMember>> viewAllMembers(@PathVariable Long clubId){
         return ResponseEntity.ok(clubService.viewAllMembers(clubId));
+    }
+    @PreAuthorize("hasRole('STUDENT')")
+    @PostMapping("/broadcast/{clubId}")
+    public ResponseEntity<String> broadcastInvite(
+            @PathVariable Long clubId,
+            @AuthenticationPrincipal MyCustomUserDetails currentUser) {
+        Club club = clubService.getClubById(clubId); // see step 3
+        Map<String, Object> payload = Map.of(
+                "clubId", clubId,
+                "clubName", club.getName(),
+                "description", club.getDescription() != null ? club.getDescription() : "",
+                "leaderName", currentUser.getUser().getFullName()
+        );
+        messagingTemplate.convertAndSend("/topic/club-invites", (Object)payload);
+        return ResponseEntity.ok("Broadcast sent");
     }
 
 }

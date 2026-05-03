@@ -34,6 +34,9 @@ public class EventMember {
     private String paymentTxnId;
     @Column(nullable = false,updatable = false)
     private LocalDateTime registeredAt;
+    private String teamName;
+    @Column(columnDefinition = "TEXT")
+    private String teamDetails;
 
     @PrePersist
     protected void onCreate(){

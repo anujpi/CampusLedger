@@ -25,12 +25,12 @@ public class ClubMember {
 
     @ManyToOne
     @JoinColumn(name = "club_id", nullable = false)
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private Club club;
 
     @ManyToOne
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
-    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private LocalDate joinedAt;
     private LocalDate leftAt;

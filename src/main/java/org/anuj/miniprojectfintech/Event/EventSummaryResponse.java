@@ -8,5 +8,7 @@ public record EventSummaryResponse(Long id,
                                    String description,
                                    LocalDateTime dueAt,
                                    boolean paid,
-                                   BigDecimal amount) {
+                                   BigDecimal amount,
+                                   Boolean solo,
+                                   Integer teamSize) {
 }

@@ -4,5 +4,7 @@ public record EventMemberResponse(Long eventMemberId,
                                   Long userId,
                                   String userName,
                                   String email,
-                                  boolean paymentDone) {
+                                  boolean paymentDone,
+                                  String teamName,
+                                  String teamDetails) {
 }

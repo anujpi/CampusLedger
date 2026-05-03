@@ -18,10 +18,10 @@ public class EventAcceptService{
     private final EventRepo eventRepo;
 
     @Transactional
-    public EventAcceptResponse acceptEventRequest(EventMemberDTO memberDTO, User currentUser) {
-        Club club = clubRepo.findClubByNameAndIsActive(memberDTO.clubName(), true);
-        if (club == null) {
-            throw new RuntimeException("Club is not active or doesnt exist");
+    public EventAcceptResponse acceptEventRequest(Long clubId, EventMemberDTO memberDTO, User currentUser) {
+        Club club = clubRepo.findById(clubId).orElseThrow(() -> new RuntimeException("Club not found"));
+        if (!Boolean.TRUE.equals(club.getIsActive())) {
+            throw new RuntimeException("Club is not active");
         }
         Event event = eventRepo.findByIdAndClub_id(memberDTO.eventId(), club.getId()).orElseThrow(() -> new RuntimeException("Event doesnt exist"));
         validateEventRegistrationWindow(event);
@@ -32,6 +32,8 @@ public class EventAcceptService{
         member.setUser(currentUser);
         member.setClub(club);
         member.setEvent(event);
+        member.setTeamName(memberDTO.teamName());
+        member.setTeamDetails(memberDTO.teamDetails());
         member = eventMemberRepo.save(member);
         if(Boolean.TRUE.equals(event.getPaid()) && event.getAmount()!= null && event.getAmount().signum()>0){
             return new EventAcceptResponse(

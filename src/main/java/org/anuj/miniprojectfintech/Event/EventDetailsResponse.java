@@ -11,5 +11,7 @@ public record EventDetailsResponse(Long id,
                                    LocalDateTime lastRegisterAt,
                                    boolean paid,
                                    BigDecimal amount,
-                                   String clubName) {
+                                   String clubName,
+                                   Boolean solo,
+                                   Integer teamSize) {
 }

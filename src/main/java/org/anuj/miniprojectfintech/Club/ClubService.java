@@ -31,6 +31,7 @@ public class ClubService {
             clubMember.setClub(club);
             clubMember.setUser(user);
             clubMember.setRole(ClubRole.LEADER);
+            clubMember.setStatus(MemberShipStatus.ACTIVE);
             clubMemberRepo.save(clubMember);
             return "Club Leader has been added for the club"+club.getName();
         }
@@ -45,6 +46,7 @@ public class ClubService {
             clubMember.setClub(club);
             clubMember.setUser(user);
             clubMember.setRole(ClubRole.CO_LEADER);
+            clubMember.setStatus(MemberShipStatus.ACTIVE);
             clubMemberRepo.save(clubMember);
             return "Club CoLeader has been added for the club"+club.getName();
         }
@@ -69,7 +71,7 @@ public class ClubService {
     }
     @Transactional
     public ResponseDTO sendRequestClub(requestDTO rdto,User student) {
-        User user = userRepo.findByfullname(rdto.name()).orElseThrow(()->new RuntimeException("User not found"));
+        User user = userRepo.findByFullName(rdto.name()).orElseThrow(()->new RuntimeException("User not found"));
         Club club = clubRepo.findById(rdto.clubId()).orElseThrow(()->new RuntimeException("Club doesn't exist"));
         if(!Objects.equals(student.getFullName(), rdto.name())){
             throw new RuntimeException("Not allowed");
@@ -143,5 +145,10 @@ public class ClubService {
 
     public List<ClubMember> viewAllMembers(Long clubId) {
         return clubMemberRepo.findByClubIdAndStatus(clubId,MemberShipStatus.ACTIVE);
+    }
+
+    public Club getClubById(Long clubId) {
+        return clubRepo.findById(clubId)
+                .orElseThrow(() -> new RuntimeException("Club not found"));
     }
 }

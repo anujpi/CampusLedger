@@ -13,11 +13,17 @@ import org.springframework.web.bind.annotation.*;
 @PreAuthorize("hasRole('STUDENT')")
 public class EventAcceptController{
     private final EventAcceptService eventAcceptService;
-    @PostMapping("/accept")
-    public ResponseEntity<EventAcceptResponse> acceptEventRequest(
-            @RequestBody EventMemberDTO memberDTO,@AuthenticationPrincipal MyCustomUserDetails myCustomUserDetails
+    @PostMapping("/accept/{clubId}")
+    public ResponseEntity<?> acceptEventRequest(
+            @PathVariable Long clubId,
+            @RequestBody EventMemberDTO memberDTO, @AuthenticationPrincipal MyCustomUserDetails myCustomUserDetails
             ){
-        return ResponseEntity.ok(eventAcceptService.acceptEventRequest(memberDTO,myCustomUserDetails.getUser()));
+        try {
+            return ResponseEntity.ok(eventAcceptService.acceptEventRequest(clubId, memberDTO, myCustomUserDetails.getUser()));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
     }
     @DeleteMapping("/registration")
     public ResponseEntity<String> unregisterEvent(

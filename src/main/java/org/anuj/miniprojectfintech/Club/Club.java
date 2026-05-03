@@ -27,7 +27,9 @@ public class Club {
     private String description;
     private Boolean isActive = true;
     private LocalDate createdAt;
+    
     @OneToMany(mappedBy = "club", cascade = CascadeType.ALL, orphanRemoval = true)
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private List<ClubMember> members = new ArrayList<>();
 
     @PrePersist

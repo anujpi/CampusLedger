@@ -10,19 +10,22 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@PreAuthorize(
-        "hasRole('STUDENT')"
-)
+@PreAuthorize("hasAnyRole('STUDENT', 'ADMIN')")
 @RequiredArgsConstructor
 @RequestMapping("/api/event")
 public class EventRequestController {
     private final EventRequestService eventRequestService;
-    @PostMapping("/request")
-    public ResponseEntity<String> sendRequest(
+    @PostMapping("/request/{clubId}")
+    public ResponseEntity<?> sendRequest(
+            @PathVariable Long clubId,
             @RequestBody RequestDTO requestDTO, @AuthenticationPrincipal MyCustomUserDetails myCustomUserDetails
             ){
-        return ResponseEntity.ok(eventRequestService.sendRequest(requestDTO,myCustomUserDetails
-                .getUser()));
+        try {
+            return ResponseEntity.ok(eventRequestService.sendRequest(clubId, requestDTO,myCustomUserDetails.getUser()));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
     }
     @DeleteMapping("/request")
     public ResponseEntity<String> deleteRequest(

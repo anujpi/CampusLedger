@@ -3,8 +3,8 @@ package org.anuj.miniprojectfintech.Event;
 import lombok.RequiredArgsConstructor;
 import org.anuj.miniprojectfintech.Club.*;
 import org.anuj.miniprojectfintech.User.User;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
-
 import java.math.BigDecimal;
 import java.util.List;
 
@@ -17,30 +17,30 @@ public class EventRequestService {
     private final ClubMemberRepo clubMemberRepo;
 
 
-    public String sendRequest(RequestDTO requestDTO, User student) {
-        Club club = clubRepo.findClubByNameAndIsActive(requestDTO.clubName(),true);
-        if(club == null){
-            throw new RuntimeException(
-                    "Club is not active"
-            );
+    public String sendRequest(Long clubId, RequestDTO requestDTO, User student) {
+        Club club = clubRepo.findById(clubId).orElseThrow(() -> new RuntimeException("Club not found"));
+        if(!Boolean.TRUE.equals(club.getIsActive())){
+            throw new RuntimeException("Club is not active");
         }
         if(!validateCoLeaderAndLeader(
                 student,club.getId()
         )){
-            throw new RuntimeException("Not allowed");
+            throw new AccessDeniedException("Only Leaders and Co-Leaders can publish events");
         }
         Event event = new Event();
         event.setName(requestDTO.name());
         event.setDescription(requestDTO.description());
         event.setDueAt(requestDTO.dueDate());
         event.setClub(club);
+        event.setSolo(requestDTO.solo());
+        event.setTeamSize(requestDTO.teamSize());
         applyPaidConfiguration(event,requestDTO.amount());
         eventRepo.save(event);
         return "Event '"+event.getName()+"' created successfully!";
     }
     public String deleteRequest(User user, Long eventId, Long clubId) {
         if(!validateCoLeaderAndLeader(user,clubId)){
-            throw new RuntimeException("Only Leaders and Co-Leaders are allowed to delete a request");
+            throw new AccessDeniedException("Only Leaders and Co-Leaders are allowed to delete a request");
         }
         Event event = eventRepo.findByIdAndClub_id(eventId,clubId).orElseThrow(()->new RuntimeException("Event not found"));
         eventRepo.delete(event);
@@ -56,6 +56,8 @@ public class EventRequestService {
         }
         event.setDescription(requestDTO.description());
         event.setDueAt(requestDTO.dueDate());
+        if(requestDTO.solo() != null) event.setSolo(requestDTO.solo());
+        if(requestDTO.teamSize() != null) event.setTeamSize(requestDTO.teamSize());
         applyPaidConfiguration(event,requestDTO.amount());
         eventRepo.save(event);
         return "Event has been successfully updated";
@@ -112,7 +114,9 @@ public class EventRequestService {
                 event.getDescription(),
                 event.getDueAt(),
                 Boolean.TRUE.equals(event.getPaid()),
-                event.getAmount() == null ? BigDecimal.ZERO : event.getAmount()
+                event.getAmount() == null ? BigDecimal.ZERO : event.getAmount(),
+                event.getSolo(),
+                event.getTeamSize()
         );
     }
     private EventDetailsResponse toEventDetailsResponse(Event event){
@@ -125,7 +129,9 @@ public class EventRequestService {
                 event.getLastRegisterAt(),
                 Boolean.TRUE.equals(event.getPaid()),
                 event.getAmount() == null ? BigDecimal.ZERO : event.getAmount(),
-                event.getClub().getName()
+                event.getClub().getName(),
+                event.getSolo(),
+                event.getTeamSize()
         );
     }
     private MyEventResponse toMyEventResponse(EventMember eventMember){
@@ -146,7 +152,9 @@ public class EventRequestService {
                 user.getId(),
                 user.getFullName(),
                 user.getEmail(),
-                Boolean.TRUE.equals(eventMember.getPaymentDone())
+                Boolean.TRUE.equals(eventMember.getPaymentDone()),
+                eventMember.getTeamName(),
+                eventMember.getTeamDetails()
         );
     }
 
