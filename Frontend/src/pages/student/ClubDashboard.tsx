@@ -9,7 +9,8 @@ import { toast } from "sonner";
 import {
   Hash, Users, Send, ArrowLeft,
   Megaphone, Check, X,
-  Crown, Shield, Circle, Calendar
+  Crown, Shield, Circle, Calendar,
+  MapPin, Clock, DollarSign, Sparkles
 } from "lucide-react";
 import { PaymentGateway } from "@/components/PaymentGateway";
 
@@ -27,8 +28,50 @@ interface ClubEvent {
   teamSize?: number;
   venue?: string;
   isJoined?: boolean;
-  totalRevenue?: number;
+  /** Present only for leaders/co-leaders */
+  totalRevenue?: number | null;
   status?: "idle" | "loading" | "confirmed";
+}
+
+interface EventDetailsPayload {
+  id: number;
+  name: string;
+  description: string;
+  dueAt: string;
+  venue?: string;
+  paid: boolean;
+  amount: number;
+  isJoined: boolean;
+  revenueCollected: number | null;
+  paidRegistrations: number | null;
+  pendingRegistrations: number | null;
+}
+
+interface EventMemberRow {
+  eventMemberId: number;
+  userId: number;
+  userName: string;
+  email: string;
+  paymentDone: boolean | null;
+  registeredAt?: string;
+  teamName?: string;
+}
+
+function formatCurrencyINR(value: number | string | null | undefined) {
+  const n = typeof value === "string" ? parseFloat(value) : Number(value ?? 0);
+  if (Number.isNaN(n)) return "0";
+  return n.toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+}
+
+function partitionEventsByTime(events: ClubEvent[]) {
+  const now = Date.now();
+  const upcoming = events
+    .filter((e) => new Date(e.dueAt).getTime() >= now)
+    .sort((a, b) => new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime());
+  const past = events
+    .filter((e) => new Date(e.dueAt).getTime() < now)
+    .sort((a, b) => new Date(b.dueAt).getTime() - new Date(a.dueAt).getTime());
+  return { upcoming, past };
 }
 
 export default function ClubDashboard() {
@@ -44,7 +87,7 @@ export default function ClubDashboard() {
   
   const [viewMode, setViewMode] = useState<"details" | "sanctum">("details");
 
-  const [activeTab, setActiveTab] = useState<"chat" | "applicants" | "events">("chat");
+  const [activeTab, setActiveTab] = useState<"chat" | "applicants" | "pastEvents">("chat");
   const [activeChannel, setActiveChannel] = useState("general");
   
   const [chatInput, setChatInput] = useState("");
@@ -56,8 +99,12 @@ export default function ClubDashboard() {
   const [isCreatingEvent, setIsCreatingEvent] = useState(false);
   const [newEvent, setNewEvent] = useState({ name: "", description: "", dueDate: "", amount: "0", solo: true, teamSize: "2", venue: "" });
   
-  const [viewingEventMembers, setViewingEventMembers] = useState<{ id: number, name: string } | null>(null);
-  const [eventMembers, setEventMembers] = useState<any[]>([]);
+  const [eventDetail, setEventDetail] = useState<{
+    summary: ClubEvent;
+    details: EventDetailsPayload | null;
+    members: EventMemberRow[];
+    loading: boolean;
+  } | null>(null);
   
   const [pendingPayment, setPendingPayment] = useState<{ eventId: number, eventMemberId: number, amount: number, title: string } | null>(null);
   const [joiningEvent, setJoiningEvent] = useState<ClubEvent | null>(null);
@@ -90,7 +137,14 @@ export default function ClubDashboard() {
       })
       .then(([m, evs]) => {
         setMembers(m);
-        setEvents(evs.map(e => ({ ...e, status: e.isJoined ? "confirmed" : "idle" })));
+        setEvents(
+          evs.map((e) => ({
+            ...e,
+            amount: Number(e.amount ?? 0),
+            totalRevenue: e.totalRevenue != null && e.totalRevenue !== undefined ? Number(e.totalRevenue) : null,
+            status: e.isJoined ? "confirmed" : "idle",
+          }))
+        );
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
@@ -230,13 +284,35 @@ export default function ClubDashboard() {
     }
   };
 
-  const fetchEventMembers = async (ev: ClubEvent) => {
-    setViewingEventMembers({ id: ev.id, name: ev.name });
+  const reloadClubEvents = async () => {
+    if (!clubId) return;
     try {
-      const data = await api<any[]>(`/api/event/${clubId}/${ev.id}/members`);
-      setEventMembers(data);
-    } catch (e: any) {
-      toast.error(e.message);
+      const evs = await api<ClubEvent[]>(`/api/event/club/${clubId}`);
+      setEvents(
+        evs.map((e) => ({
+          ...e,
+          amount: Number(e.amount ?? 0),
+          totalRevenue: e.totalRevenue != null && e.totalRevenue !== undefined ? Number(e.totalRevenue) : null,
+          status: e.isJoined ? "confirmed" : "idle",
+        }))
+      );
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const openEventDetail = async (ev: ClubEvent) => {
+    if (!clubId) return;
+    setEventDetail({ summary: ev, details: null, members: [], loading: true });
+    try {
+      const [details, members] = await Promise.all([
+        api<EventDetailsPayload>(`/api/event/${clubId}/${ev.id}`),
+        api<EventMemberRow[]>(`/api/event/${clubId}/${ev.id}/members`),
+      ]);
+      setEventDetail({ summary: ev, details, members, loading: false });
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Failed to load event");
+      setEventDetail(null);
     }
   };
 
@@ -258,8 +334,7 @@ export default function ClubDashboard() {
       });
       toast.success("Event created successfully!");
       setIsCreatingEvent(false);
-      const evs = await api<ClubEvent[]>(`/api/event/club/${clubId}`);
-      setEvents(evs.map(e => ({ ...e, status: e.isJoined ? "confirmed" : "idle" })));
+      await reloadClubEvents();
       setNewEvent({ name: "", description: "", dueDate: "", amount: "0", solo: true, teamSize: "2", venue: "" });
     } catch (e: any) {
       toast.error(e.message);
@@ -281,6 +356,9 @@ export default function ClubDashboard() {
 
   const leaders = members.filter((m) => m.role === "LEADER" || m.role === "CO_LEADER");
   const regularMembers = members.filter((m) => m.role === "MEMBER");
+  const { upcoming, past } = partitionEventsByTime(events);
+  const featuredUpcoming = upcoming[0];
+  const moreUpcoming = upcoming.slice(1);
 
   if (loading) return (
     <div className="fixed inset-0 z-[200] bg-black">
@@ -361,101 +439,233 @@ export default function ClubDashboard() {
 
       {/* ── PUBLIC DETAILS VIEW ── */}
       {viewMode === "details" && (
-        <div className="flex-1 overflow-y-auto px-6 py-12">
-          <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12">
-            
-            {/* Left Column (Identity) */}
-            <div className="lg:col-span-7 space-y-10">
-              <div className="bg-white/[0.02] backdrop-blur-md rounded-3xl p-10 border border-white/[0.07] relative overflow-hidden">
-                <div className="absolute -top-32 -right-32 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
-                <h1 className="text-4xl font-extrabold text-white mb-6">
-                  {club?.name}
-                </h1>
-                <p className="text-lg text-white/50 leading-relaxed mb-8">
-                  {club?.description || "Join us to collaborate, learn, and build the future together in this exclusive campus organization."}
-                </p>
-                
-                <div>
-                  <h3 className="text-sm font-bold uppercase tracking-widest text-white/20 mb-4 flex items-center gap-2">
-                    <Users className="w-4 h-4" /> Member Roster
-                  </h3>
-                  <div className="flex items-center gap-2 overflow-x-auto pb-4 hide-scrollbar">
-                    {members.map((m) => (
-                      <div key={m.id} className="relative shrink-0 group">
-                        <div className="w-12 h-12 rounded-full bg-white/[0.04] border-2 border-white/10 flex items-center justify-center shadow-sm group-hover:-translate-y-1 transition-all">
-                          <span className="text-indigo-400 font-bold">{m.user.fullName?.charAt(0) || '?'}</span>
-                        </div>
-                        {m.role === "LEADER" && (
-                          <div className="absolute -top-1 -right-1 bg-amber-500/20 rounded-full p-0.5">
-                            <Crown className="w-3 h-3 text-amber-400" />
+        <div className="flex-1 overflow-y-auto px-6 py-10">
+          <div className="max-w-7xl mx-auto space-y-12 pb-16">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
+              {/* Club identity */}
+              <div className="lg:col-span-5 space-y-6">
+                <div className="bg-white/[0.02] backdrop-blur-md rounded-3xl p-10 border border-white/[0.07] relative overflow-hidden">
+                  <div className="absolute -top-32 -right-32 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+                  <h1 className="text-3xl sm:text-4xl font-extrabold text-white mb-4">{club?.name}</h1>
+                  <p className="text-base text-white/50 leading-relaxed mb-8">
+                    {club?.description || "Join us to collaborate, learn, and build together."}
+                  </p>
+                  <div>
+                    <h3 className="text-xs font-bold uppercase tracking-widest text-white/25 mb-4 flex items-center gap-2">
+                      <Users className="w-4 h-4" /> Members
+                    </h3>
+                    <div className="flex items-center gap-2 overflow-x-auto pb-2 hide-scrollbar">
+                      {members.map((m) => (
+                        <div key={m.id} className="relative shrink-0 group">
+                          <div className="w-11 h-11 rounded-full bg-white/[0.04] border-2 border-white/10 flex items-center justify-center shadow-sm">
+                            <span className="text-emerald-400 font-bold text-sm">{m.user.fullName?.charAt(0) || "?"}</span>
                           </div>
-                        )}
-                      </div>
-                    ))}
-                    {members.length === 0 && <span className="text-white/20 text-sm italic">No members yet.</span>}
+                          {m.role === "LEADER" && (
+                            <div className="absolute -top-1 -right-1 bg-amber-500/20 rounded-full p-0.5">
+                              <Crown className="w-3 h-3 text-amber-400" />
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                      {members.length === 0 && <span className="text-white/25 text-sm italic">No members yet.</span>}
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* Right Column (Event Timeline) */}
-            <div className="lg:col-span-5">
-              <div className="bg-white/[0.02] backdrop-blur-md rounded-3xl p-8 border border-white/[0.07]">
-                <div className="flex items-center justify-between mb-8">
-                  <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                    <Calendar className="w-5 h-5 text-indigo-400" /> Event Timeline
-                  </h3>
+              {/* Events hub */}
+              <div className="lg:col-span-7 space-y-8">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div>
+                    <h2 className="text-2xl font-extrabold text-white flex items-center gap-2">
+                      <Sparkles className="w-6 h-6 text-emerald-400" /> Events
+                    </h2>
+                    <p className="text-sm text-white/40 mt-1">Upcoming and past club activity — visible to everyone browsing this club.</p>
+                  </div>
                   {isLeader && (
-                    <button onClick={() => setIsCreatingEvent(true)} className="px-3 py-1.5 bg-white/[0.04] text-indigo-400 rounded-lg text-xs font-bold hover:bg-white/[0.08] transition-colors border border-white/10">
+                    <button
+                      type="button"
+                      onClick={() => setIsCreatingEvent(true)}
+                      className="px-5 py-2.5 rounded-full text-sm font-bold bg-white text-black hover:bg-white/90 transition-all shadow-lg shadow-emerald-500/10"
+                    >
                       + Create Event
                     </button>
                   )}
                 </div>
-                
-                <div className="space-y-8 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-white/10 before:to-transparent">
-                  {events.length === 0 && <div className="text-center text-sm font-medium text-white/20 mt-8 relative z-10">No upcoming events.</div>}
-                  {events.map((ev, i) => {
-                    const isPast = new Date(ev.dueAt) < new Date();
-                    return (
-                    <div key={ev.id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-                      {/* Icon */}
-                      <div className={`flex items-center justify-center w-10 h-10 rounded-full border-4 border-black shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10 ${isPast ? 'bg-white/[0.04] text-white/30' : 'bg-indigo-500/20 text-indigo-400'}`}>
-                        {isPast ? <Check className="w-4 h-4" /> : <div className="w-2.5 h-2.5 bg-indigo-400 rounded-full animate-pulse" />}
-                      </div>
-                      
-                      {/* Card */}
-                      <div className={`w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-2xl border ${isPast ? 'bg-white/[0.01] border-white/[0.04] opacity-60' : 'bg-white/[0.02] border-white/[0.07]'}`}>
-                        <div className="flex items-center justify-between mb-1">
-                          <h4 className={`font-bold ${isPast ? 'text-white/40' : 'text-white'}`}>{ev.name}</h4>
-                          <div className="flex gap-2">
-                            <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-md border ${ev.solo ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' : 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20'}`}>
-                              {ev.solo ? 'Solo' : `Multi (${ev.teamSize || 'N/A'})`}
+
+                {/* Featured upcoming */}
+                {featuredUpcoming && (
+                  <div className="relative rounded-3xl overflow-hidden border border-emerald-500/25 bg-gradient-to-br from-emerald-500/15 via-black to-black p-8 min-h-[200px]">
+                    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-emerald-400/20 via-transparent to-transparent pointer-events-none" />
+                    <div className="relative flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
+                      <div className="space-y-3 max-w-xl">
+                        <span className="inline-flex text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                          Upcoming · Featured
+                        </span>
+                        <h3 className="text-2xl sm:text-3xl font-black text-white uppercase tracking-tight">
+                          {featuredUpcoming.name}
+                        </h3>
+                        <p className="text-sm text-white/55 line-clamp-3">{featuredUpcoming.description}</p>
+                        <div className="flex flex-wrap gap-3 text-xs text-white/45">
+                          <span className="inline-flex items-center gap-1.5 font-mono">
+                            <Clock className="w-3.5 h-3.5" />
+                            {new Date(featuredUpcoming.dueAt).toLocaleString()}
+                          </span>
+                          {featuredUpcoming.venue && (
+                            <span className="inline-flex items-center gap-1.5">
+                              <MapPin className="w-3.5 h-3.5 text-emerald-400/80" />
+                              {featuredUpcoming.venue}
                             </span>
-                            {ev.paid && <span className="text-[10px] font-bold bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded-md border border-amber-500/20">₹{ev.amount}</span>}
-                          </div>
-                        </div>
-                        <p className="text-xs font-mono text-white/30 mb-1">{new Date(ev.dueAt).toLocaleString()}</p>
-                        {ev.venue && <p className="text-[10px] font-bold text-indigo-400/60 uppercase tracking-widest mb-2 flex items-center gap-1">📍 {ev.venue}</p>}
-                        <p className="text-xs text-white/40 mb-3 line-clamp-2">{ev.description}</p>
-                        <div className="flex gap-2 mb-3">
-                          <button onClick={() => fetchEventMembers(ev)} className="flex-1 py-1.5 rounded-lg text-[10px] font-extrabold uppercase bg-white/[0.04] text-white/40 border border-white/10 hover:bg-white/[0.08] hover:text-white transition-all">
-                            View Roster
-                          </button>
-                          {isLeader && ev.paid && (
-                            <div className="flex-1 py-1.5 rounded-lg text-[10px] font-extrabold uppercase bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center justify-center">
-                              Revenue: ₹{ev.totalRevenue || 0}
-                            </div>
                           )}
                         </div>
-                        {!isPast && (
-                          <button onClick={() => handleJoinEvent(ev)} disabled={ev.status === "loading" || ev.status === "confirmed"} className={`mt-2 px-4 py-1.5 rounded-lg text-xs font-bold w-full border transition-colors ${ev.status === "confirmed" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-white text-black hover:bg-white/90"}`}>
-                            {ev.status === "loading" ? "Processing..." : ev.status === "confirmed" ? "Registered ✓" : "Join Event"}
-                          </button>
+                      </div>
+                      <div className="flex flex-col items-stretch lg:items-end gap-3 shrink-0">
+                        {featuredUpcoming.paid && (
+                          <span className="text-sm font-bold text-amber-300/90 border border-amber-500/25 bg-amber-500/10 px-4 py-2 rounded-full text-center lg:text-right">
+                            ₹{formatCurrencyINR(featuredUpcoming.amount)}
+                          </span>
                         )}
+                        {isLeader && featuredUpcoming.paid && featuredUpcoming.totalRevenue != null && (
+                          <span className="text-xs font-bold text-white/50 flex items-center justify-center lg:justify-end gap-1.5">
+                            <DollarSign className="w-3.5 h-3.5 text-amber-400" />
+                            Collected ₹{formatCurrencyINR(featuredUpcoming.totalRevenue)}
+                          </span>
+                        )}
+                        <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
+                          <button
+                            type="button"
+                            onClick={() => openEventDetail(featuredUpcoming)}
+                            className="inline-flex items-center justify-center px-6 py-2.5 rounded-full text-sm font-bold bg-white text-black hover:bg-emerald-50 transition-colors"
+                          >
+                            View details
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleJoinEvent(featuredUpcoming)}
+                            disabled={featuredUpcoming.status === "loading" || featuredUpcoming.status === "confirmed"}
+                            className={`inline-flex items-center justify-center px-6 py-2.5 rounded-full text-sm font-bold border transition-colors ${
+                              featuredUpcoming.status === "confirmed"
+                                ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/25"
+                                : "bg-transparent text-white border-white/20 hover:bg-white/10"
+                            }`}
+                          >
+                            {featuredUpcoming.status === "loading"
+                              ? "Processing…"
+                              : featuredUpcoming.status === "confirmed"
+                                ? "Registered"
+                                : "Join"}
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  )})}
-                </div>
+                  </div>
+                )}
+
+                {/* More upcoming */}
+                {moreUpcoming.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-black uppercase tracking-widest text-white/30 mb-4">More upcoming</h4>
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      {moreUpcoming.map((ev) => (
+                        <div
+                          key={ev.id}
+                          className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-5 flex flex-col hover:border-emerald-500/25 transition-colors"
+                        >
+                          <div className="flex items-start justify-between gap-2 mb-3">
+                            <h4 className="font-bold text-white text-sm leading-snug">{ev.name}</h4>
+                            <span className="shrink-0 text-[9px] font-black uppercase px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-300 border border-emerald-500/25">
+                              Upcoming
+                            </span>
+                          </div>
+                          <p className="text-xs text-white/40 line-clamp-2 mb-3 flex-1">{ev.description}</p>
+                          <p className="text-[11px] font-mono text-white/35 mb-4">{new Date(ev.dueAt).toLocaleString()}</p>
+                          <div className="flex flex-wrap gap-2 mt-auto">
+                            <button
+                              type="button"
+                              onClick={() => openEventDetail(ev)}
+                              className="flex-1 py-2 rounded-xl text-[11px] font-extrabold uppercase bg-white/[0.06] text-white/70 border border-white/10 hover:bg-white/[0.1] hover:text-white"
+                            >
+                              Details
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleJoinEvent(ev)}
+                              disabled={ev.status === "loading" || ev.status === "confirmed"}
+                              className={`flex-1 py-2 rounded-xl text-[11px] font-extrabold uppercase border transition-colors ${
+                                ev.status === "confirmed"
+                                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/25"
+                                  : "bg-white text-black border-transparent hover:bg-white/90"
+                              }`}
+                            >
+                              {ev.status === "loading" ? "…" : ev.status === "confirmed" ? "Joined" : "Join"}
+                            </button>
+                          </div>
+                          {isLeader && ev.paid && ev.totalRevenue != null && (
+                            <p className="text-[10px] font-bold text-amber-400/90 mt-3 pt-3 border-t border-white/[0.06]">
+                              Revenue ₹{formatCurrencyINR(ev.totalRevenue)}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Past */}
+                {past.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-black uppercase tracking-widest text-white/30 mb-4 flex items-center gap-2">
+                      <Check className="w-4 h-4 text-white/25" /> Past events
+                    </h4>
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      {past.map((ev) => (
+                        <div
+                          key={ev.id}
+                          className="rounded-2xl border border-white/[0.06] bg-white/[0.015] p-5 opacity-90 hover:opacity-100 transition-opacity"
+                        >
+                          <div className="flex items-start justify-between gap-2 mb-2">
+                            <h4 className="font-bold text-white/85 text-sm">{ev.name}</h4>
+                            <span className="shrink-0 text-[9px] font-black uppercase px-2 py-0.5 rounded-md bg-white/[0.06] text-white/45 border border-white/10">
+                              Past
+                            </span>
+                          </div>
+                          <p className="text-xs text-white/35 line-clamp-2 mb-3">{ev.description}</p>
+                          <p className="text-[11px] font-mono text-white/30 mb-4">{new Date(ev.dueAt).toLocaleDateString()}</p>
+                          <button
+                            type="button"
+                            onClick={() => openEventDetail(ev)}
+                            className="w-full py-2 rounded-xl text-[11px] font-extrabold uppercase bg-white/[0.04] text-white/50 border border-white/10 hover:text-white hover:bg-white/[0.08]"
+                          >
+                            View details
+                          </button>
+                          {isLeader && ev.paid && ev.totalRevenue != null && (
+                            <p className="text-[10px] font-bold text-amber-400/80 mt-3 flex items-center gap-1">
+                              <DollarSign className="w-3 h-3" /> Collected ₹{formatCurrencyINR(ev.totalRevenue)}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {events.length === 0 && (
+                  <div className="rounded-3xl border border-dashed border-white/15 bg-white/[0.02] p-14 text-center">
+                    <Calendar className="w-12 h-12 text-white/15 mx-auto mb-4" />
+                    <p className="text-white/40 font-medium mb-2">No events yet</p>
+                    {isLeader ? (
+                      <button
+                        type="button"
+                        onClick={() => setIsCreatingEvent(true)}
+                        className="mt-2 text-sm font-bold text-emerald-400 hover:text-emerald-300"
+                      >
+                        Create the first event
+                      </button>
+                    ) : (
+                      <p className="text-xs text-white/25">Check back when leaders publish an event.</p>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -473,6 +683,7 @@ export default function ClubDashboard() {
                 {["general", "announcements", "resources"].map((ch) => (
                   <button
                     key={ch}
+                    type="button"
                     onClick={() => { setActiveTab("chat"); setActiveChannel(ch); }}
                     className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-bold transition-all mb-1 ${
                       activeTab === "chat" && activeChannel === ch
@@ -484,12 +695,25 @@ export default function ClubDashboard() {
                     {ch}
                   </button>
                 ))}
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("pastEvents")}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-bold transition-all mt-2 ${
+                    activeTab === "pastEvents"
+                      ? "bg-white/[0.07] text-white border border-white/10"
+                      : "text-white/40 hover:bg-white/[0.04] hover:text-white/70"
+                  }`}
+                >
+                  <Calendar className={`w-4 h-4 shrink-0 ${activeTab === "pastEvents" ? "text-emerald-400" : "text-white/20"}`} />
+                  Past events
+                </button>
               </div>
 
               {isLeader && (
                 <div className="px-4 pt-4 pb-2">
                   <p className="text-xs font-bold uppercase tracking-widest text-white/20 px-2 mb-3">Leader</p>
                   <button
+                    type="button"
                     onClick={() => { setActiveTab("applicants"); }}
                     className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-bold transition-colors ${
                       activeTab === "applicants"
@@ -526,6 +750,11 @@ export default function ClubDashboard() {
                   <Shield className="w-5 h-5 text-cyan-400" />
                   <span className="text-sm font-extrabold text-white">Pending Applicants</span>
                 </>
+              ) : activeTab === "pastEvents" ? (
+                <>
+                  <Calendar className="w-5 h-5 text-emerald-400" />
+                  <span className="text-sm font-extrabold text-white">Past events</span>
+                </>
               ) : (
                 <>
                   <Hash className="w-5 h-5 text-white/30" />
@@ -535,7 +764,59 @@ export default function ClubDashboard() {
             </div>
 
             <AnimatePresence mode="wait">
-              {activeTab === "applicants" ? (
+              {activeTab === "pastEvents" ? (
+                <motion.div
+                  key="past-events"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="flex-1 overflow-y-auto p-6"
+                >
+                  {past.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-20 text-white/25">
+                      <Calendar className="w-14 h-14 mb-4 opacity-30" />
+                      <p className="text-sm font-medium text-center max-w-xs">
+                        No past events yet. When event dates pass, they show up here for everyone in the club.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3 max-w-xl mx-auto">
+                      <p className="text-xs font-black uppercase tracking-widest text-white/25 mb-4">
+                        History ({past.length})
+                      </p>
+                      {past.map((ev) => (
+                        <div
+                          key={ev.id}
+                          className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4 hover:border-white/15 transition-colors"
+                        >
+                          <div className="flex items-start justify-between gap-2 mb-2">
+                            <h4 className="font-bold text-white text-sm">{ev.name}</h4>
+                            <span className="shrink-0 text-[9px] font-black uppercase px-2 py-0.5 rounded-md bg-white/[0.08] text-white/45 border border-white/10">
+                              Past
+                            </span>
+                          </div>
+                          <p className="text-xs text-white/40 line-clamp-2 mb-2">{ev.description}</p>
+                          <p className="text-[11px] font-mono text-white/30 mb-3">
+                            {new Date(ev.dueAt).toLocaleString()}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => openEventDetail(ev)}
+                            className="w-full py-2 rounded-xl text-[11px] font-extrabold uppercase bg-white/[0.06] text-white/70 border border-white/10 hover:bg-white/[0.1] hover:text-white"
+                          >
+                            View details
+                          </button>
+                          {isLeader && ev.paid && ev.totalRevenue != null && (
+                            <p className="text-[10px] font-bold text-amber-400/85 mt-3 pt-3 border-t border-white/[0.06] flex items-center gap-1">
+                              <DollarSign className="w-3 h-3" /> Collected ₹{formatCurrencyINR(ev.totalRevenue)}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </motion.div>
+              ) : activeTab === "applicants" ? (
                 <motion.div 
                   key="applicants"
                   initial={{ opacity: 0, y: 10 }}
@@ -766,6 +1047,7 @@ export default function ClubDashboard() {
             toast.success("Payment successful! Registered for event.");
             setEvents(prev => prev.map(ev => ev.id === pendingPayment.eventId ? { ...ev, status: "confirmed", isJoined: true } : ev));
             setPendingPayment(null);
+            await reloadClubEvents();
           }}
         />
       )}
@@ -810,47 +1092,143 @@ export default function ClubDashboard() {
         )}
       </AnimatePresence>
 
-      {/* ── EVENT MEMBERS MODAL ── */}
+      {/* ── EVENT DETAIL + ATTENDEES (leaders see revenue & payment status) ── */}
       <AnimatePresence>
-        {viewingEventMembers && (
-          <div className="fixed inset-0 z-[400] flex items-center justify-center bg-black/90 backdrop-blur-xl p-4">
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-neutral-950 rounded-3xl p-8 max-w-lg w-full shadow-2xl border border-white/10 max-h-[80vh] flex flex-col">
-              <div className="flex items-center justify-between mb-6">
+        {eventDetail && (
+          <div className="fixed inset-0 z-[400] flex items-center justify-center bg-black/90 backdrop-blur-xl p-4 overflow-y-auto">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.96 }}
+              className="bg-neutral-950 rounded-3xl p-6 sm:p-8 max-w-3xl w-full shadow-2xl border border-white/10 max-h-[90vh] flex flex-col my-8"
+            >
+              <div className="flex items-start justify-between gap-4 mb-6 shrink-0">
                 <div>
-                  <h2 className="text-2xl font-bold text-white">Event Roster</h2>
-                  <p className="text-xs text-indigo-400 font-bold uppercase tracking-widest">{viewingEventMembers.name}</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400/80 mb-1">
+                    Events · {club?.name}
+                  </p>
+                  <h2 className="text-2xl font-bold text-white">{eventDetail.summary.name}</h2>
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-white/60 bg-white/[0.06] border border-white/10 px-3 py-1 rounded-full">
+                      <Clock className="w-3.5 h-3.5" />
+                      {eventDetail.details?.dueAt
+                        ? new Date(eventDetail.details.dueAt).toLocaleString()
+                        : new Date(eventDetail.summary.dueAt).toLocaleString()}
+                    </span>
+                    {(eventDetail.details?.venue || eventDetail.summary.venue) && (
+                      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-white/60 bg-white/[0.06] border border-white/10 px-3 py-1 rounded-full">
+                        <MapPin className="w-3.5 h-3.5 text-emerald-400/70" />
+                        {eventDetail.details?.venue || eventDetail.summary.venue}
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <button onClick={() => setViewingEventMembers(null)} className="p-2 rounded-xl text-white/40 hover:text-white hover:bg-white/10 transition-colors">
+                <button
+                  type="button"
+                  onClick={() => setEventDetail(null)}
+                  className="p-2 rounded-xl text-white/40 hover:text-white hover:bg-white/10 transition-colors shrink-0"
+                >
                   <X className="w-5 h-5" />
                 </button>
               </div>
-              
-              <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
-                {eventMembers.length === 0 ? (
-                  <div className="py-20 text-center text-white/20 text-sm font-medium">No one has joined this event yet.</div>
-                ) : (
-                  eventMembers.map((m) => (
-                    <div key={m.eventMemberId} className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.05] flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-full bg-white/[0.04] border border-white/10 flex items-center justify-center text-indigo-400 font-bold">
-                          {m.userName?.charAt(0) || '?'}
-                        </div>
-                        <div>
-                          <p className="text-sm font-bold text-white">{m.userName}</p>
-                          {m.teamName && <p className="text-[10px] text-white/40 font-bold uppercase tracking-wider">Team: {m.teamName}</p>}
+
+              {eventDetail.loading ? (
+                <div className="flex flex-col items-center justify-center py-24 gap-3">
+                  <div className="w-10 h-10 border-2 border-white/10 border-t-emerald-400 rounded-full animate-spin" />
+                  <p className="text-sm text-white/35 font-medium">Loading event…</p>
+                </div>
+              ) : (
+                <>
+                  <p className="text-sm text-white/50 leading-relaxed mb-6">
+                    {eventDetail.details?.description ?? eventDetail.summary.description ?? "—"}
+                  </p>
+
+                  {isLeader &&
+                    eventDetail.details?.paid &&
+                    eventDetail.details.revenueCollected != null &&
+                    eventDetail.details.amount > 0 && (
+                      <div className="rounded-2xl border border-amber-500/25 bg-amber-500/[0.07] p-5 mb-6">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-amber-200/70 mb-2">Revenue summary</p>
+                        <p className="text-3xl font-mono font-bold text-white tracking-tight">
+                          ₹{formatCurrencyINR(eventDetail.details.revenueCollected)}
+                        </p>
+                        <div className="flex gap-6 mt-3 text-xs text-white/45">
+                          <span>Paid: {eventDetail.details.paidRegistrations ?? "—"}</span>
+                          <span>Pending: {eventDetail.details.pendingRegistrations ?? "—"}</span>
                         </div>
                       </div>
-                      <div className="flex items-center gap-3">
-                        {m.paymentDone ? (
-                          <span className="px-2 py-1 bg-emerald-500/10 text-emerald-400 text-[10px] font-bold rounded-md border border-emerald-500/20">PAID</span>
-                        ) : (
-                          <span className="px-2 py-1 bg-amber-500/10 text-amber-400 text-[10px] font-bold rounded-md border border-amber-500/20">PENDING</span>
-                        )}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
+                    )}
+
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-bold text-white">Registered attendees</h3>
+                    <span className="text-xs text-white/35">{eventDetail.members.length} total</span>
+                  </div>
+                  <div className="flex-1 overflow-y-auto rounded-xl border border-white/[0.08] min-h-[120px] max-h-[45vh]">
+                    {eventDetail.members.length === 0 ? (
+                      <div className="py-16 text-center text-white/30 text-sm">No registrations yet.</div>
+                    ) : (
+                      <table className="w-full text-sm">
+                        <thead className="sticky top-0 bg-neutral-950/95 backdrop-blur border-b border-white/[0.08]">
+                          <tr className="text-left text-[10px] uppercase tracking-wider text-white/35">
+                            <th className="px-4 py-3 font-bold">Name</th>
+                            <th className="px-4 py-3 font-bold hidden sm:table-cell">Email</th>
+                            <th className="px-4 py-3 font-bold hidden md:table-cell">Registered</th>
+                            <th className="px-4 py-3 font-bold text-right">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {eventDetail.members.map((m) => (
+                            <tr key={m.eventMemberId} className="border-b border-white/[0.05] hover:bg-white/[0.02]">
+                              <td className="px-4 py-3 font-semibold text-white">
+                                {m.userName}
+                                {m.teamName && (
+                                  <span className="block text-[10px] font-normal text-white/35">Team: {m.teamName}</span>
+                                )}
+                              </td>
+                              <td className="px-4 py-3 text-white/45 hidden sm:table-cell">{m.email}</td>
+                              <td className="px-4 py-3 text-white/35 font-mono text-xs hidden md:table-cell">
+                                {m.registeredAt
+                                  ? new Date(m.registeredAt).toLocaleDateString()
+                                  : "—"}
+                              </td>
+                              <td className="px-4 py-3 text-right">
+                                {(() => {
+                                  const priced =
+                                    Boolean(eventDetail.details?.paid) &&
+                                    Number(eventDetail.details?.amount ?? 0) > 0;
+                                  if (!priced) {
+                                    return (
+                                      <span className="inline-flex px-2 py-0.5 rounded-md bg-white/[0.06] text-white/45 text-[10px] font-bold border border-white/10">
+                                        Registered
+                                      </span>
+                                    );
+                                  }
+                                  if (m.paymentDone === null) {
+                                    return (
+                                      <span className="inline-flex px-2 py-0.5 rounded-md bg-white/[0.06] text-white/40 text-[10px] font-bold border border-white/10">
+                                        Registered
+                                      </span>
+                                    );
+                                  }
+                                  return m.paymentDone ? (
+                                    <span className="inline-flex px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-400 text-[10px] font-bold border border-emerald-500/25">
+                                      Paid
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-400 text-[10px] font-bold border border-amber-500/25">
+                                      Pending
+                                    </span>
+                                  );
+                                })()}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                </>
+              )}
             </motion.div>
           </div>
         )}

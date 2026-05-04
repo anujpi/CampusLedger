@@ -10,11 +10,23 @@ interface FeeNotification {
   dueDate: string;
 }
 
+/** Matches backend {@link ClubEventNotificationDTO} JSON */
+export interface ClubEventNotification {
+  type: "clubEvent";
+  clubId: number;
+  clubName: string;
+  eventId: number;
+  eventName: string;
+  venue?: string | null;
+  dueAt: string;
+}
+
 export const WS_URL = "http://localhost:8080/ws";
 
 export function useNotifications(
   onFeeNotification: (n: FeeNotification) => void,
-  onClubInvite?: (payload: { clubId: number; clubName: string; description: string; leaderName: string }) => void
+  onClubInvite?: (payload: { clubId: number; clubName: string; description: string; leaderName: string }) => void,
+  onClubEventNotification?: (n: ClubEventNotification) => void
 ) {
   const clientRef = useRef<Client | null>(null);
 
@@ -29,7 +41,6 @@ export function useNotifications(
       connectHeaders: {
         Authorization: `Bearer ${token}`,
       },
-      // Retry every 5s if disconnected
       reconnectDelay: 5000,
       onConnect: () => {
         if (!active) return;
@@ -39,6 +50,17 @@ export function useNotifications(
             onFeeNotification(notification);
           } catch {
             // ignore malformed messages
+          }
+        });
+
+        client.subscribe("/user/queue/club-notifications", (frame) => {
+          try {
+            const raw = JSON.parse(frame.body) as ClubEventNotification;
+            if (raw?.type === "clubEvent" && onClubEventNotification) {
+              onClubEventNotification(raw);
+            }
+          } catch {
+            // ignore
           }
         });
 
@@ -52,7 +74,7 @@ export function useNotifications(
         });
       },
       onStompError: (frame) => {
-        console.warn("STOMP error (fee notifications):", frame.headers?.message);
+        console.warn("STOMP error (notifications):", frame.headers?.message);
       },
       onWebSocketError: () => {
         // Will auto-reconnect via reconnectDelay

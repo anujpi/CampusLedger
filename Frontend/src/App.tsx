@@ -3,11 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { NotificationProvider } from "@/context/NotificationContext";
-import { Toaster, toast } from "sonner";
-import { Megaphone } from "lucide-react";
-import { Client } from "@stomp/stompjs";
-import SockJS from "sockjs-client";
-import { useEffect } from "react";
+import { Toaster } from "sonner";
 
 // Page Imports
 import LoginPage from "./pages/Login";
@@ -32,32 +28,6 @@ const queryClient = new QueryClient();
 
 function AppRoutes() {
   const { user, loading } = useAuth();
-
-  useEffect(() => {
-    if (!user || user.role !== "STUDENT") return;
-    const token = localStorage.getItem("token");
-    if (!token) return;
-
-    const client = new Client({
-      webSocketFactory: () => new SockJS("http://localhost:8080/ws"),
-      connectHeaders: { Authorization: `Bearer ${token}` },
-      onConnect: () => {
-        client.subscribe("/topic/club-invites", (frame) => {
-          const data = JSON.parse(frame.body);
-          toast(data.clubName, {
-            description: `${data.leaderName} invited you to join the club!`,
-            icon: <Megaphone className="w-4 h-4 text-indigo-400" />,
-            action: {
-              label: "View Club",
-              onClick: () => window.location.href = `/student/clubs`,
-            },
-          });
-        });
-      },
-    });
-    client.activate();
-    return () => { client.deactivate(); };
-  }, [user]);
 
   if (loading) return <div className="flex h-screen items-center justify-center">Loading...</div>;
 
