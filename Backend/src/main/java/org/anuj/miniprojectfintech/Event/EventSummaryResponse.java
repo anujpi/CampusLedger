@@ -13,5 +13,6 @@ public record EventSummaryResponse(Long id,
                                    Integer teamSize,
                                    String venue,
                                    boolean isJoined,
+                                   /** Non-null only for club leaders/co-leaders */
                                    BigDecimal totalRevenue) {
 }

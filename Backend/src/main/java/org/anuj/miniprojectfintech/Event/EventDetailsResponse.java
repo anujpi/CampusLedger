@@ -14,5 +14,9 @@ public record EventDetailsResponse(Long id,
                                    String clubName,
                                    Boolean solo,
                                    Integer teamSize,
-                                   String venue) {
+                                   String venue,
+                                   boolean isJoined,
+                                   BigDecimal revenueCollected,
+                                   Integer paidRegistrations,
+                                   Integer pendingRegistrations) {
 }

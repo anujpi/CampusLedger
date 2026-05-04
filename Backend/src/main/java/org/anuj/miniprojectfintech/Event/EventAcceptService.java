@@ -34,8 +34,12 @@ public class EventAcceptService{
         member.setEvent(event);
         member.setTeamName(memberDTO.teamName());
         member.setTeamDetails(memberDTO.teamDetails());
+        boolean requiresPayment = Boolean.TRUE.equals(event.getPaid()) && event.getAmount() != null && event.getAmount().signum() > 0;
+        if (!requiresPayment) {
+            member.setPaymentDone(true);
+        }
         member = eventMemberRepo.save(member);
-        if(Boolean.TRUE.equals(event.getPaid()) && event.getAmount()!= null && event.getAmount().signum()>0){
+        if(requiresPayment){
             return new EventAcceptResponse(
                     true,
                     "Payment required",
