@@ -6,6 +6,8 @@ import org.anuj.miniprojectfintech.Club.ClubMember;
 import org.anuj.miniprojectfintech.Club.ClubMemberRepo;
 import org.anuj.miniprojectfintech.Club.ClubRepo;
 import org.anuj.miniprojectfintech.Club.ClubRole;
+import org.anuj.miniprojectfintech.Club.MemberShipStatus;
+import org.anuj.miniprojectfintech.Notification.ClubEventNotificationDTO;
 import org.anuj.miniprojectfintech.User.User;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -46,9 +48,26 @@ public class EventRequestService {
         applyPaidConfiguration(event,requestDTO.amount());
         eventRepo.save(event);
 
-        // Notify all club members about the new event
+        // In-chat system line for members currently in the club room
         simpMessagingTemplate.convertAndSend("/topic/club/" + clubId + "/chat",
                 Optional.of(Map.of("senderName", "System", "content", "📣 New Event Published: " + event.getName() + (event.getVenue() != null ? " @ " + event.getVenue() : ""), "isSystem", true)));
+
+        // Personal notification to every active member (so it appears in Notifications even when not in chat)
+        ClubEventNotificationDTO clubEventNotif = new ClubEventNotificationDTO(
+                "clubEvent",
+                clubId,
+                club.getName(),
+                event.getId(),
+                event.getName(),
+                event.getVenue(),
+                event.getDueAt()
+        );
+        for (ClubMember member : clubMemberRepo.findByClubIdAndStatus(clubId, MemberShipStatus.ACTIVE)) {
+            User u = member.getUser();
+            if (u.getEmail() != null && !u.getEmail().isBlank()) {
+                simpMessagingTemplate.convertAndSendToUser(u.getEmail(), "/queue/club-notifications", clubEventNotif);
+            }
+        }
 
         return "Event '"+event.getName()+"' created successfully!";
     }
